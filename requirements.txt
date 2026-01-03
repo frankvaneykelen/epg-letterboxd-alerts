@@ -1,0 +1,6 @@
+azure-functions==1.18.0
+requests>=2.27.1
+python-dotenv==1.0.0
+pytz>=2022.5
+lxml>=4.9.1
+pyyaml>=6.0

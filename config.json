@@ -1,0 +1,35 @@
+{
+  "ziggo": {
+    "enabled": true,
+    "channel_file": "data/channels.txt",
+    "xmltv_file": "data/ziggogo.xml",
+    "database_file": "data/ziggogoepg_cache.sqlite3",
+    "scan_days": 7,
+    "configuration": "ziggo-nl"
+  },
+  "tmdb": {
+    "base_url": "https://api.themoviedb.org/3"
+  },
+  "letterboxd": {
+    "enabled": false,
+    "mode": "csv",
+    "auto_import": true,
+    "watchlist_csv": "data/watchlist.csv",
+    "watched_csv": "data/watched.csv",
+    "diary_csv": "data/diary.csv",
+    "base_url": "https://letterboxd.com/api/v0"
+  },
+  "tvheadend": {
+    "enabled": false,
+    "base_url": "http://localhost:9981"
+  },
+  "filters": {
+    "languages": ["en", "nl"],
+    "min_rating": 6.5,
+    "include_subtitles": true
+  },
+  "notifications": {
+    "enabled": false,
+    "service": "azure-notification-hubs"
+  }
+}

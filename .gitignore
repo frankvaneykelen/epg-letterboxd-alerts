@@ -144,6 +144,14 @@ ENV/
 env.bak/
 venv.bak/
 
+# Letterboxd CSV data (personal data)
+data/
+*.csv
+
+# Ziggo EPG cache and generated files
+*.sqlite3
+*.xml
+
 # Spyder project settings
 .spyderproject
 .spyproject

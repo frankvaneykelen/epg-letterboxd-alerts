@@ -1,0 +1,10 @@
+# Ziggo Netherlands EPG Configuration
+# URLs for accessing Ziggo's EPG service
+
+urls:
+  epg_channel_list: https://prod.spark.ziggogo.tv/eng/web/linear-service/v2/channels?cityId=65535&language=nl&productClass=Orion-DASH
+  epg_segment: https://static.spark.ziggogo.tv/eng/web/epg-service-lite/nl/nl/events/segments/{}
+  epg_detail: https://prod.spark.ziggogo.tv/eng/web/linear-service/v2/replayEvent/{}?returnLinearContent=true&language=nl
+
+# Timezone for XMLTV timestamps
+timezone: Europe/Amsterdam
