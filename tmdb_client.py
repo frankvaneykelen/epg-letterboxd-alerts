@@ -96,6 +96,7 @@ class TMDbClient:
     def normalize_title(self, title: str, year: Optional[int] = None) -> Dict[str, Any] | None:
         """
         Normalize a film title against TMDb to get canonical ID and metadata.
+        If no match found with exact year, tries year+1, year-1, then no year.
 
         Args:
             title: Film title to normalize
@@ -104,7 +105,22 @@ class TMDbClient:
         Returns:
             Dictionary with normalized data (id, title, release_date, etc.) or None
         """
+        # Try exact year first
         movie = self.search_movie(title, year)
+        
+        # If no match and year provided, try year+1 and year-1
+        if not movie and year:
+            logger.info(f"No match for '{title}' ({year}), trying year+1")
+            movie = self.search_movie(title, year + 1)
+            
+            if not movie:
+                logger.info(f"No match for '{title}' ({year+1}), trying year-1")
+                movie = self.search_movie(title, year - 1)
+            
+            if not movie:
+                logger.info(f"No match for '{title}' with year variations, trying without year")
+                movie = self.search_movie(title, None)
+        
         if not movie:
             return None
 

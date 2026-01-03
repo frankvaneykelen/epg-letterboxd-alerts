@@ -104,7 +104,13 @@ If you want Letterboxd integration:
    - Unzip the downloaded file
    - Copy `diary.csv`, `watched.csv`, and `watchlist.csv` to `data/` folder
 
-4. **Enable in config.json:**
+4. **Optional: Create a do-not-watchlist (blocklist):**
+   - Create `data/do-not-watchlist.csv` to exclude unwanted movies from suggestions
+   - See `data/do-not-watchlist.csv.example` for format
+   - Useful for filtering out children's movies, documentaries you're not interested in, etc.
+   - Supports ±1 year tolerance for matching (same as watched.csv)
+
+5. **Enable in config.json:**
    ```json
    {
      "letterboxd": {

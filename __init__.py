@@ -19,9 +19,7 @@ load_dotenv()
 
 from epg_parser import EPGParser
 from tmdb_client import TMDbClient
-from letterboxd_client import LetterboxdClient
 from letterboxd_csv_loader import LetterboxdCSVLoader
-from tvheadend_client import TVHeadendClient
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +50,7 @@ def load_config(config_path: str = "config.json") -> dict:
 def process_broadcasts(
     epg_broadcasts: list,
     tmdb_client: TMDbClient,
-    letterboxd_client: LetterboxdClient,
     letterboxd_csv: LetterboxdCSVLoader,
-    tvheadend_client: TVHeadendClient,
     config: dict,
 ) -> list:
     """
@@ -63,8 +59,7 @@ def process_broadcasts(
     Args:
         epg_broadcasts: List of EPGBroadcast objects
         tmdb_client: TMDb client instance
-        letterboxd_client: Letterboxd client instance
-        tvheadend_client: TVHeadend client instance
+        letterboxd_csv: Letterboxd CSV loader instance
         config: Configuration dictionary
 
     Returns:
@@ -73,8 +68,6 @@ def process_broadcasts(
     suggestions = []
     filters = config.get("filters", {})
     min_rating = filters.get("min_rating", 0.0)
-    letterboxd_cfg = config.get("letterboxd", {})
-    letterboxd_enabled = letterboxd_cfg.get("enabled", False)
     
     total_movies = len(epg_broadcasts)
 
@@ -85,93 +78,53 @@ def process_broadcasts(
         logger.info(f"Processing movie {idx}/{total_movies}: {broadcast.title} ({broadcast.channel_name}, {broadcast_date})")
         logger.info(f"{'='*80}")
 
-        # Normalize title with TMDb
-        tmdb_data = tmdb_client.normalize_title(broadcast.title)
+        # Normalize title with TMDb (pass year from EPG if available)
+        release_year = None
+        if broadcast.date:
+            try:
+                release_year = int(broadcast.date)
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse year from broadcast.date: {broadcast.date}")
+        
+        tmdb_data = tmdb_client.normalize_title(broadcast.title, year=release_year)
         if not tmdb_data:
             logger.warning(f"Could not normalize title: {broadcast.title}")
             continue
 
         movie_id = tmdb_data.get("tmdb_id")
 
-        if letterboxd_enabled:
-            letterboxd_mode = letterboxd_cfg.get("mode", "csv")
+        # Use CSV data (local, no API) - match by title and year
+        tmdb_title = tmdb_data.get("title")
+        release_date = tmdb_data.get("release_date", "")
+        tmdb_year = None
+        if release_date:
+            try:
+                tmdb_year = int(release_date[:4])
+            except (ValueError, TypeError):
+                pass
+        
+        if tmdb_title and tmdb_year:
+            # Check do-not-watchlist first
+            if letterboxd_csv.is_on_do_not_watchlist(tmdb_title, tmdb_year):
+                logger.info(f"  Skipping '{tmdb_title}' ({tmdb_year}) - on do-not-watchlist")
+                continue
             
-            if letterboxd_mode == "csv":
-                # Use CSV data (local, no API) - match by title and year
-                tmdb_title = tmdb_data.get("title")
-                release_date = tmdb_data.get("release_date", "")
-                tmdb_year = None
-                if release_date:
-                    try:
-                        tmdb_year = int(release_date[:4])
-                    except (ValueError, TypeError):
-                        pass
-                
-                if tmdb_title and tmdb_year:
-                    # Check do-not-watchlist first
-                    if letterboxd_csv.is_on_do_not_watchlist(tmdb_title, tmdb_year):
-                        logger.info(f"  Skipping '{tmdb_title}' ({tmdb_year}) - on do-not-watchlist")
-                        continue
-                    
-                    on_watchlist = letterboxd_csv.is_on_watchlist(tmdb_title, tmdb_year)
-                    is_seen = letterboxd_csv.is_seen(tmdb_title, tmdb_year)
-                    user_rating = letterboxd_csv.get_user_rating(tmdb_title, tmdb_year)
-                else:
-                    on_watchlist = False
-                    is_seen = False
-                    user_rating = None
-                    
-                rating = user_rating or tmdb_data.get("vote_average") or 0.0
-                rating_source = "letterboxd_csv" if user_rating else "tmdb"
-                
-                logger.info(
-                    f"  Letterboxd (CSV) - watchlist: {on_watchlist}, seen: {is_seen}, rating: {rating} ({rating_source})"
-                )
-            else:
-                # Use API (requires OAuth token)
-                on_watchlist = letterboxd_client.is_on_watchlist(str(movie_id))
-                is_seen = letterboxd_client.is_seen(str(movie_id))
-                rating = letterboxd_client.get_community_rating(str(movie_id)) or 0.0
-                rating_source = "letterboxd_api"
-                
-                logger.info(
-                    f"  Letterboxd (API) - watchlist: {on_watchlist}, seen: {is_seen}, rating: {rating}"
-                )
-
-            should_record = (
-                on_watchlist or not is_seen or rating >= min_rating
-            )
+            on_watchlist = letterboxd_csv.is_on_watchlist(tmdb_title, tmdb_year)
+            is_seen = letterboxd_csv.is_seen(tmdb_title, tmdb_year)
+            user_rating = letterboxd_csv.get_user_rating(tmdb_title, tmdb_year)
         else:
-            # Letterboxd disabled: use TMDb vote_average as rating fallback
-            # BUT still check watched.csv to avoid recommending already-watched movies
-            tmdb_title = tmdb_data.get("title")
-            release_date = tmdb_data.get("release_date", "")
-            tmdb_year = None
-            if release_date:
-                try:
-                    tmdb_year = int(release_date[:4])
-                except (ValueError, TypeError):
-                    pass
-            
             on_watchlist = False
             is_seen = False
-            if tmdb_title and tmdb_year:
-                # Check do-not-watchlist first
-                if letterboxd_csv.is_on_do_not_watchlist(tmdb_title, tmdb_year):
-                    logger.info(f"  Skipping '{tmdb_title}' ({tmdb_year}) - on do-not-watchlist")
-                    continue
-                
-                is_seen = letterboxd_csv.is_seen(tmdb_title, tmdb_year)
-                logger.info(f"  Checking watched: title='{tmdb_title}', year={tmdb_year}, seen={is_seen}")
+            user_rating = None
             
-            rating = tmdb_data.get("vote_average") or 0.0
-            rating_source = "tmdb"
+        rating = user_rating or tmdb_data.get("vote_average") or 0.0
+        rating_source = "letterboxd_csv" if user_rating else "tmdb"
+        
+        logger.info(
+            f"  Letterboxd (CSV) - watchlist: {on_watchlist}, seen: {is_seen}, rating: {rating} ({rating_source})"
+        )
 
-            logger.info(
-                f"  Letterboxd disabled; using TMDb rating: {rating}, seen: {is_seen}"
-            )
-
-            should_record = not is_seen and rating >= min_rating
+        should_record = on_watchlist or (not is_seen and rating >= min_rating)
 
         if should_record:
             suggestion = {
@@ -183,19 +136,6 @@ def process_broadcasts(
                 "rating_source": rating_source,
                 "scheduled": False,
             }
-
-            # Attempt to schedule recording if TVHeadend is enabled
-            if tvheadend_client.enabled:
-                # This is a placeholder; real implementation would map channel to TVHeadend UUID
-                channel_uuid = broadcast.channel  # In practice, need channel mapping
-                scheduled = tvheadend_client.schedule_recording(
-                    channel_uuid=channel_uuid,
-                    title=broadcast.title,
-                    start_time=broadcast.start_time,
-                    end_time=broadcast.end_time,
-                    metadata={"description": broadcast.description},
-                )
-                suggestion["scheduled"] = scheduled
 
             suggestions.append(suggestion)
             logger.info(f"  ✓ Recording suggested for: {broadcast.title}")
@@ -226,13 +166,11 @@ def main(mytimer: func.TimerRequest) -> None:
         # Initialize clients
         epg_parser = EPGParser(config)
         tmdb_client = TMDbClient(config)
-        letterboxd_client = LetterboxdClient(config)
         letterboxd_csv = LetterboxdCSVLoader(config)
-        tvheadend_client = TVHeadendClient(config)
         
-        # Load Letterboxd CSV data if enabled and in CSV mode
+        # Load Letterboxd CSV data if enabled
         letterboxd_cfg = config.get("letterboxd", {})
-        if letterboxd_cfg.get("enabled", False) and letterboxd_cfg.get("mode") == "csv":
+        if letterboxd_cfg.get("enabled", False):
             # Check if auto-import is enabled
             if letterboxd_cfg.get("auto_import", False):
                 logger.info("Auto-importing latest Letterboxd export from Downloads...")
@@ -253,12 +191,6 @@ def main(mytimer: func.TimerRequest) -> None:
                 )
             else:
                 logger.warning("Failed to load Letterboxd CSV data; continuing without it")
-
-        # Test TVHeadend connection if enabled
-        if tvheadend_client.enabled:
-            if not tvheadend_client.test_connection():
-                logger.warning("TVHeadend connection failed; recording will be disabled")
-                tvheadend_client.enabled = False
 
         # Fetch and parse EPG
         logger.info("Fetching EPG data...")
@@ -294,15 +226,13 @@ def main(mytimer: func.TimerRequest) -> None:
             watched_path = Path(watched_csv_path)
             if watched_path.exists():
                 mtime = watched_path.stat().st_mtime
-                watched_csv_timestamp = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+                watched_csv_timestamp = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
 
         # Process broadcasts and generate suggestions
         suggestions = process_broadcasts(
             broadcasts,
             tmdb_client,
-            letterboxd_client,
             letterboxd_csv,
-            tvheadend_client,
             config,
         )
 
@@ -448,26 +378,16 @@ def main(mytimer: func.TimerRequest) -> None:
         html_lines.append('                <li><strong>Movie Metadata:</strong> The Movie Database (TMDb) for ratings, release years, and movie IDs</li>')
         
         # Add Letterboxd stats if available
-        if letterboxd_cfg.get("enabled", False) and letterboxd_csv:
-            try:
-                stats = letterboxd_csv.get_stats()
-                timestamp_text = f" on {watched_csv_timestamp}" if watched_csv_timestamp else ""
-                html_lines.append(f'                <li><strong>Letterboxd Data:</strong> {stats["watchlist_count"]} watchlist items, {stats["seen_count"]} watched films, {stats["rated_count"]} rated films (exported from <a href="https://letterboxd.com/settings/data/" target="_blank">letterboxd.com/settings/data/</a>{timestamp_text})</li>')
-            except:
-                timestamp_text = f" on {watched_csv_timestamp}" if watched_csv_timestamp else ""
-                html_lines.append(f'                <li><strong>Letterboxd Data:</strong> CSV export for watchlist and watched films (from <a href="https://letterboxd.com/settings/data/" target="_blank">letterboxd.com/settings/data/</a>{timestamp_text})</li>')
-        else:
-            # Get stats even when Letterboxd is disabled
-            try:
-                stats = letterboxd_csv.get_stats()
-                watched_count = stats.get("seen_count", 0)
-                do_not_count = stats.get("do_not_watchlist_count", 0)
-                timestamp_text = f" on {watched_csv_timestamp}" if watched_csv_timestamp else ""
-                html_lines.append(f'                <li><strong>Filtering:</strong> Excludes films from <strong>watched.csv</strong> ({watched_count} already-watched movies) and <strong>do-not-watchlist.csv</strong> ({do_not_count} movies). Data exported from <a href="https://letterboxd.com/settings/data/" target="_blank">letterboxd.com/settings/data/</a>{timestamp_text}</li>')
-            except:
-                timestamp_text = f" on {watched_csv_timestamp}" if watched_csv_timestamp else ""
-                html_lines.append(f'                <li><strong>Filtering:</strong> Excludes already-watched films from watched.csv and do-not-watchlist.csv. Data exported from <a href="https://letterboxd.com/settings/data/" target="_blank">letterboxd.com/settings/data/</a>{timestamp_text}</li>')
+        # Add Letterboxd stats
+        try:
+            stats = letterboxd_csv.get_stats()
+            timestamp_text = f" on {watched_csv_timestamp}" if watched_csv_timestamp else ""
+            html_lines.append(f'                <li><strong>Letterboxd Data:</strong> {stats["watchlist_count"]} watchlist items, {stats["seen_count"]} watched films, {stats["rated_count"]} rated films, {stats["do_not_watchlist_count"]} blocked films (exported from <a href="https://letterboxd.com/settings/data/" target="_blank">letterboxd.com/settings/data/</a>{timestamp_text})</li>')
+        except:
+            timestamp_text = f" on {watched_csv_timestamp}" if watched_csv_timestamp else ""
+            html_lines.append(f'                <li><strong>Letterboxd Data:</strong> CSV export for watchlist and watched films (from <a href="https://letterboxd.com/settings/data/" target="_blank">letterboxd.com/settings/data/</a>{timestamp_text})</li>')
         
+        html_lines.append('                <li>Tip for using the www.ziggogo.tv EPG search link: removed the trailing space in the search box to trigger the search</li>')
         html_lines.append('            </ul>')
         html_lines.append('        </div>')
         

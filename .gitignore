@@ -144,10 +144,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Letterboxd CSV data (personal data)
-data/
-*.csv
-
 # Ziggo EPG cache and generated files
 *.sqlite3
 *.xml
@@ -213,3 +209,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+data/*.db
+data/*.html
+data/diary.csv
+data/do-not-watchlist.csv
+data/watched.csv
+data/watchlist.csv

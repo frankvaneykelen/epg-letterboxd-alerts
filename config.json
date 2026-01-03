@@ -11,17 +11,12 @@
     "base_url": "https://api.themoviedb.org/3"
   },
   "letterboxd": {
-    "enabled": false,
-    "mode": "csv",
+    "enabled": true,
     "auto_import": true,
     "watchlist_csv": "data/watchlist.csv",
     "watched_csv": "data/watched.csv",
     "diary_csv": "data/diary.csv",
-    "base_url": "https://letterboxd.com/api/v0"
-  },
-  "tvheadend": {
-    "enabled": false,
-    "base_url": "http://localhost:9981"
+    "do_not_watchlist_csv": "data/do-not-watchlist.csv"
   },
   "filters": {
     "languages": ["en", "nl"],
