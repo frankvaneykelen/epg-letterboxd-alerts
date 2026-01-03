@@ -88,7 +88,48 @@ def process_broadcasts(
         
         tmdb_data = tmdb_client.normalize_title(broadcast.title, year=release_year)
         if not tmdb_data:
-            logger.warning(f"Could not normalize title: {broadcast.title}")
+            logger.warning(f"No TMDb match found - will suggest based on EPG data only: {broadcast.title}")
+            # Still suggest the broadcast, but with EPG data only
+            tmdb_title = broadcast.title
+            tmdb_year = release_year
+            
+            # Check Letterboxd even without TMDb match
+            if tmdb_title and tmdb_year:
+                if letterboxd_csv.is_on_do_not_watchlist(tmdb_title, tmdb_year):
+                    logger.info(f"  Skipping '{tmdb_title}' ({tmdb_year}) - on do-not-watchlist")
+                    continue
+                
+                on_watchlist = letterboxd_csv.is_on_watchlist(tmdb_title, tmdb_year)
+                is_seen = letterboxd_csv.is_seen(tmdb_title, tmdb_year)
+            else:
+                on_watchlist = False
+                is_seen = False
+            
+            rating = 0.0
+            rating_source = "none"
+            
+            logger.info(
+                f"  Letterboxd (CSV) - watchlist: {on_watchlist}, seen: {is_seen}, rating: {rating} ({rating_source})"
+            )
+            
+            # Suggest if on watchlist or not seen (no rating filter without TMDb)
+            should_record = on_watchlist or not is_seen
+            
+            if should_record:
+                suggestion = {
+                    "broadcast": broadcast,
+                    "tmdb_data": None,
+                    "on_watchlist": on_watchlist,
+                    "is_seen": is_seen,
+                    "rating": rating,
+                    "rating_source": rating_source,
+                    "scheduled": False,
+                }
+                suggestions.append(suggestion)
+                logger.info(f"  ✓ Recording suggested for: {broadcast.title} (no TMDb match)")
+            else:
+                logger.info(f"  ✗ Skipping: {broadcast.title}")
+            
             continue
 
         movie_id = tmdb_data.get("tmdb_id")
@@ -111,14 +152,12 @@ def process_broadcasts(
             
             on_watchlist = letterboxd_csv.is_on_watchlist(tmdb_title, tmdb_year)
             is_seen = letterboxd_csv.is_seen(tmdb_title, tmdb_year)
-            user_rating = letterboxd_csv.get_user_rating(tmdb_title, tmdb_year)
         else:
             on_watchlist = False
             is_seen = False
-            user_rating = None
             
-        rating = user_rating or tmdb_data.get("vote_average") or 0.0
-        rating_source = "letterboxd_csv" if user_rating else "tmdb"
+        rating = tmdb_data.get("vote_average") or 0.0
+        rating_source = "tmdb"
         
         logger.info(
             f"  Letterboxd (CSV) - watchlist: {on_watchlist}, seen: {is_seen}, rating: {rating} ({rating_source})"
@@ -187,7 +226,7 @@ def main(mytimer: func.TimerRequest) -> None:
                 stats = letterboxd_csv.get_stats()
                 logger.info(
                     f"Letterboxd CSV loaded: {stats['watchlist_count']} watchlist, "
-                    f"{stats['seen_count']} seen, {stats['rated_count']} rated"
+                    f"{stats['seen_count']} seen"
                 )
             else:
                 logger.warning("Failed to load Letterboxd CSV data; continuing without it")
@@ -305,9 +344,9 @@ def main(mytimer: func.TimerRequest) -> None:
             # Build rating link to TMDb
             if suggestion['rating']:
                 rating_text = f"{suggestion['rating']:.1f}"
-                tmdb_data = suggestion.get('tmdb_data', {})
-                tmdb_id = tmdb_data.get('tmdb_id')
-                if tmdb_id:
+                tmdb_data = suggestion.get('tmdb_data')
+                if tmdb_data and tmdb_data.get('tmdb_id'):
+                    tmdb_id = tmdb_data.get('tmdb_id')
                     tmdb_url = f"https://www.themoviedb.org/movie/{tmdb_id}"
                     rating = f'<a href="{tmdb_url}" target="tmdb">{rating_text}</a>'
                 else:
@@ -340,8 +379,11 @@ def main(mytimer: func.TimerRequest) -> None:
             bcast_date = broadcast.start_time.strftime("%Y-%m-%d")
             bcast_time = broadcast.start_time.strftime("%H:%M")
             # Build Letterboxd search link
-            tmdb_data = suggestion.get('tmdb_data', {})
-            tmdb_title = tmdb_data.get('title', broadcast.title)
+            tmdb_data = suggestion.get('tmdb_data')
+            if tmdb_data and tmdb_data.get('title'):
+                tmdb_title = tmdb_data.get('title')
+            else:
+                tmdb_title = broadcast.title
             tmdb_year = year if year != "-" else ""
             # Escape each part individually, then join with +
             lb_search_parts = [quote(p, safe='') for p in [tmdb_title, tmdb_year] if p]

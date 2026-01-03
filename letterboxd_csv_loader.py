@@ -31,7 +31,6 @@ class LetterboxdCSVLoader:
         self._watchlist_films: Set[tuple] = set()
         self._seen_films: Set[tuple] = set()
         self._do_not_watchlist_films: Set[tuple] = set()
-        self._ratings: Dict[tuple, float] = {}
         self._loaded = False
 
     def load_data(self) -> bool:
@@ -79,7 +78,7 @@ class LetterboxdCSVLoader:
         # Only try diary if watched.csv wasn't found or failed
         if not watched_loaded and self.diary_path:
             if self._load_diary(self.diary_path):
-                logger.info(f"Loaded {len(self._seen_films)} films and {len(self._ratings)} ratings from diary CSV")
+                logger.info(f"Loaded {len(self._seen_films)} films from diary CSV")
             else:
                 logger.warning("Failed to load diary CSV")
                 success = False
@@ -228,19 +227,7 @@ class LetterboxdCSVLoader:
                     if name and year_str:
                         try:
                             year = int(year_str)
-                            film_key = (name, year)
-                            self._seen_films.add(film_key)
-                            
-                            # Parse rating if available (Letterboxd uses 0.5-5.0 scale)
-                            rating_str = row.get('Rating', '').strip()
-                            if rating_str:
-                                try:
-                                    # Convert Letterboxd rating (0.5-5.0) to TMDb scale (1-10)
-                                    rating = float(rating_str) * 2.0
-                                    self._ratings[film_key] = rating
-                                except ValueError:
-                                    pass
-                                    
+                            self._seen_films.add((name, year))
                         except ValueError:
                             logger.warning(f"Invalid year in diary: {year_str} for {name}")
                             continue
@@ -315,27 +302,6 @@ class LetterboxdCSVLoader:
                 return True
         return False
 
-    def get_user_rating(self, tmdb_title: str, tmdb_year: int) -> Optional[float]:
-        """
-        Get user rating for a film by title and year (±1 year tolerance).
-
-        Args:
-            tmdb_title: TMDb movie title
-            tmdb_year: Release year from TMDb
-
-        Returns:
-            User rating (0-10 scale) or None if not rated
-        """
-        if not self._loaded:
-            self.load_data()
-        
-        # Check with ±1 year tolerance
-        for year_offset in [-1, 0, 1]:
-            rating = self._ratings.get((tmdb_title, tmdb_year + year_offset))
-            if rating is not None:
-                return rating
-        return None
-
     def get_stats(self) -> Dict[str, int]:
         """
         Get statistics about loaded data.
@@ -349,6 +315,5 @@ class LetterboxdCSVLoader:
         return {
             "watchlist_count": len(self._watchlist_films),
             "seen_count": len(self._seen_films),
-            "rated_count": len(self._ratings),
             "do_not_watchlist_count": len(self._do_not_watchlist_films),
         }
