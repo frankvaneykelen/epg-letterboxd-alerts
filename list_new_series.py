@@ -115,12 +115,22 @@ def list_non_films():
     
     logger.info("Starting series EPG processing...")
     
+    # Determine paths based on environment
+    is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
+               os.environ.get('WEBSITE_INSTANCE_ID') or 
+               os.environ.get('WEBSITE_SITE_NAME'))
+    
+    if is_azure:
+        xml_output_path = "/tmp/ziggogo-series.xml"
+    else:
+        xml_output_path = "data/ziggogo-series.xml"
+    
     # Fetch/update EPG data from Ziggo first
     try:
         logger.info("Fetching series EPG data from Ziggo...")
         fetch_epg.fetch_epg(
             channel_file="data/channels-series.txt",
-            output_file="data/ziggogo-series.xml",
+            output_file=xml_output_path,
             scan_days=7  # 7 days for series (fewer programmes to fetch)
         )
         logger.info("Series EPG fetch completed successfully")
@@ -139,7 +149,7 @@ def list_non_films():
     else:
         api_key = os.getenv("TMDB_API_KEY")
     
-    xml_path = Path("data/ziggogo-series.xml")
+    xml_path = Path(xml_output_path)
     if not xml_path.exists():
         logger.error(f"Error: {xml_path} not found - cannot process series")
         return
