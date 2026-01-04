@@ -12,7 +12,7 @@
   },
   "letterboxd": {
     "enabled": true,
-    "auto_import": true,
+    "auto_import": false,
     "watchlist_csv": "data/watchlist.csv",
     "watched_csv": "data/watched.csv",
     "diary_csv": "data/diary.csv",
