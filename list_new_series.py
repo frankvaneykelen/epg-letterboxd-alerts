@@ -17,6 +17,7 @@ import unicodedata
 from dotenv import load_dotenv
 import fetch_epg
 from blob_config_loader import download_config_file
+from blob_html_writer import upload_html_to_blob
 
 # Load environment variables from .env file
 load_dotenv()
@@ -509,22 +510,36 @@ def list_non_films():
     html_lines.append('</body>')
     html_lines.append('</html>')
     
-    # Save to HTML files
+    html_content = '\n'.join(html_lines)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     
-    # Save to wwwroot for hosting
-    wwwroot_path = Path("wwwroot") / "new-series.html"
-    wwwroot_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(wwwroot_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(html_lines))
+    # Upload to blob storage (for Azure Functions and static website hosting)
+    upload_success = upload_html_to_blob(html_content, "new-series.html")  # Uses $web container by default
     
-    # Also save timestamped copy to data folder
-    data_path = Path("data") / f"new-series-{timestamp}.html"
-    data_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(data_path, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(html_lines))
+    # Also save local copy for development/backup
+    try:
+        local_path = Path("wwwroot") / "new-series.html"
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(local_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        logger.info(f"Saved local copy to {local_path}")
+    except Exception as e:
+        logger.warning(f"Could not save local copy: {e}")
     
-    print(f"Saved {non_film_count} non-Film programmes to {wwwroot_path} and {data_path}")
+    # Also save timestamped copy to data folder (local only)
+    try:
+        data_path = Path("data") / f"new-series-{timestamp}.html"
+        data_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(data_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        logger.info(f"Saved timestamped copy to {data_path}")
+    except Exception as e:
+        logger.warning(f"Could not save timestamped copy: {e}")
+    
+    if upload_success:
+        print(f"Successfully uploaded new-series.html to blob storage ({non_film_count} programmes)")
+    else:
+        print(f"Failed to upload to blob storage (saved {non_film_count} programmes to local files)")
 
 if __name__ == "__main__":
     list_non_films()

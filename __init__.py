@@ -29,6 +29,7 @@ load_dotenv()
 from epg_parser import EPGParser
 from tmdb_client import TMDbClient
 from letterboxd_csv_loader import LetterboxdCSVLoader
+from blob_html_writer import upload_html_to_blob
 
 logger = logging.getLogger(__name__)
 
@@ -501,20 +502,35 @@ def main(mytimer: func.TimerRequest) -> None:
         html_lines.append('</body>')
         html_lines.append('</html>')
         
-        # Save to HTML files
-        # Save to wwwroot for hosting
-        wwwroot_path = Path("wwwroot") / "index.html"
-        wwwroot_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(wwwroot_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(html_lines))
+        html_content = "\n".join(html_lines)
         
-        # Also save timestamped copy to data folder
-        data_path = Path("data") / f"recording-suggestions-{timestamp}.html"
-        data_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(data_path, "w", encoding="utf-8") as f:
-            f.write("\n".join(html_lines))
+        # Upload to blob storage (for Azure Functions and static website hosting)
+        upload_success = upload_html_to_blob(html_content, "index.html")  # Uses $web container by default
         
-        logger.info(f"\nSaved recording suggestions to {wwwroot_path} and {data_path}")
+        # Also save local copy for development/backup
+        try:
+            local_path = Path("wwwroot") / "index.html"
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(local_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            logger.info(f"Saved local copy to {local_path}")
+        except Exception as e:
+            logger.warning(f"Could not save local copy: {e}")
+        
+        # Also save timestamped copy to data folder (local only)
+        try:
+            data_path = Path("data") / f"recording-suggestions-{timestamp}.html"
+            data_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(data_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            logger.info(f"Saved timestamped copy to {data_path}")
+        except Exception as e:
+            logger.warning(f"Could not save timestamped copy: {e}")
+        
+        if upload_success:
+            logger.info("Successfully uploaded index.html to blob storage")
+        else:
+            logger.warning("Failed to upload to blob storage (local files still available)")
         
         # Log results to console
         logger.info(f"\nGenerated {len(suggestions)} recording suggestions")

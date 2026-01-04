@@ -38,8 +38,28 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     allowBlobPublicAccess: false
     supportsHttpsTrafficOnly: true
     accessTier: 'Hot'
+    // Network rules for IP restrictions
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Deny'
+      ipRules: [
+        { value: '213.73.141.240' } // K202
+        // Add your IP addresses here - examples:
+        // { value: '1.2.3.4' }          // Single IP
+        // { value: '10.0.0.0/24' }      // IP range in CIDR notation
+      ]
+    }
   }
 }
+
+// Enable static website hosting
+resource staticWebsite 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+// Note: Static website configuration requires Azure CLI or Portal
+// Run after deployment: az storage blob service-properties update --account-name <name> --static-website --index-document index.html
 
 // Blob Service
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
@@ -53,6 +73,15 @@ resource letterboxdContainer 'Microsoft.Storage/storageAccounts/blobServices/con
   name: containerName
   properties: {
     publicAccess: 'None'
+  }
+}
+
+// Container for HTML files (wwwroot)
+resource wwwrootContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobService
+  name: 'wwwroot'
+  properties: {
+    publicAccess: 'None'  // Access controlled by storage firewall
   }
 }
 
@@ -137,18 +166,18 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
   }
 }
 
-// Role assignment: Storage Blob Data Reader for Function App's Managed Identity
-resource blobReaderRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+// Role assignment: Storage Blob Data Contributor for Function App's Managed Identity (needs write access)
+resource blobContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
   scope: subscription()
-  // Storage Blob Data Reader role
-  name: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
+  // Storage Blob Data Contributor role
+  name: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 }
 
 resource functionAppBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: storageAccount
-  name: guid(storageAccount.id, functionApp.id, blobReaderRoleDefinition.id)
+  name: guid(storageAccount.id, functionApp.id, blobContributorRoleDefinition.id)
   properties: {
-    roleDefinitionId: blobReaderRoleDefinition.id
+    roleDefinitionId: blobContributorRoleDefinition.id
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
   }
