@@ -109,7 +109,8 @@ class ZiggoGoEpgGrabber:
         db_path = Path(database_file)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         
-        self._db = sqlite3.connect(str(db_path))
+        # Set timeout to 30 seconds to handle concurrent access gracefully
+        self._db = sqlite3.connect(str(db_path), timeout=30.0)
         self._db.row_factory = sqlite3.Row
         self._dbcur = self._db.cursor()
         self._dbcur.arraysize = 1024
