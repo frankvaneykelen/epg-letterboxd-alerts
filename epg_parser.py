@@ -93,15 +93,22 @@ class EPGParser:
         try:
             # In Azure Functions, use /tmp for writable storage
             import os
+            import time
             # Check multiple Azure environment variables for reliability
             is_azure = (os.environ.get('WEBSITE_INSTANCE_ID') or 
                        os.environ.get('WEBSITE_SITE_NAME') or 
                        os.environ.get('FUNCTIONS_WORKER_RUNTIME'))
             
             if is_azure:  # Running in Azure
-                # Use /tmp for database (only writable location in Azure Functions)
-                database_file = f"/tmp/{Path(self.database_file).name}"
-                xmltv_file = f"/tmp/{Path(self.xmltv_file).name}"
+                # Use /tmp with unique filename to avoid concurrent access issues
+                timestamp = int(time.time())
+                db_name = Path(self.database_file).stem
+                db_ext = Path(self.database_file).suffix
+                xml_name = Path(self.xmltv_file).stem
+                xml_ext = Path(self.xmltv_file).suffix
+                
+                database_file = f"/tmp/{db_name}_{timestamp}{db_ext}"
+                xmltv_file = f"/tmp/{xml_name}_{timestamp}{xml_ext}"
                 logger.info(f"Running in Azure - using /tmp for SQLite: {database_file}")
             else:
                 # Local development - use configured paths
