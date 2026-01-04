@@ -5,7 +5,7 @@ This file is used when deploying to Azure Functions.
 
 import azure.functions as func
 from __init__ import main
-from list_new_series import main as series_main
+from list_new_series import list_non_films
 from pathlib import Path
 from blob_html_writer import download_html_from_blob
 
@@ -27,7 +27,7 @@ def epg_letterboxd_series_timer(mytimer: func.TimerRequest) -> None:
     TimerTrigger function for EPG-Letterboxd Series Alerts.
     Runs 1 hour after films timer (1:00, 7:00, 13:00, 19:00).
     """
-    series_main(mytimer)
+    list_non_films()
 
 
 @app.route(route="", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
