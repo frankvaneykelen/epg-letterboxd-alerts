@@ -4,13 +4,21 @@ Loads watchlist and diary data from exported Letterboxd CSV files.
 """
 
 import logging
+import os
 import csv
 from typing import Set, Dict, Any, Optional
 from pathlib import Path
-from blob_config_loader import download_config_file
 
 logger = logging.getLogger(__name__)
 
+# Detect if running in Azure
+def is_azure_environment():
+    """Check if running in Azure Functions environment."""
+    return (
+        os.getenv('FUNCTIONS_WORKER_RUNTIME') is not None or
+        os.getenv('WEBSITE_INSTANCE_ID') is not None or
+        os.getenv('WEBSITE_SITE_NAME') is not None
+    )
 
 class LetterboxdCSVLoader:
     """Loads Letterboxd data from CSV exports (no API required)."""
@@ -23,13 +31,25 @@ class LetterboxdCSVLoader:
             config: Configuration dictionary with 'letterboxd' section
         """
         self.config = config.get("letterboxd", {})
-        self.watchlist_path = self.config.get("watchlist_csv")
-        self.diary_path = self.config.get("diary_csv")
-        self.watched_path = self.config.get("watched_csv", "data/watched.csv")
-        self.do_not_watchlist_path = self.config.get("do_not_watchlist_csv", "data/do-not-watchlist.csv")
         
-        # Cache loaded data - store by (title, year) tuple
-        self._watchlist_films: Set[tuple] = set()
+        # Get paths from config
+        watchlist_csv = self.config.get("watchlist_csv", "data/watchlist.csv")
+        diary_csv = self.config.get("diary_csv", "data/diary.csv")
+        watched_csv = self.config.get("watched_csv", "data/watched.csv")
+        do_not_watchlist_csv = self.config.get("do_not_watchlist_csv", "data/do-not-watchlist.csv")
+        
+        # In Azure, replace data/ prefix with /tmp/ (extracted ZIP location)
+        if is_azure_environment():
+            self.watchlist_path = watchlist_csv.replace("data/", "/tmp/") if watchlist_csv else None
+            self.diary_path = diary_csv.replace("data/", "/tmp/") if diary_csv else None
+            self.watched_path = watched_csv.replace("data/", "/tmp/")
+            self.do_not_watchlist_path = do_not_watchlist_csv.replace("data/", "/tmp/")
+            logger.info(f"Running in Azure - using /tmp for CSV files")
+        else:
+            self.watchlist_path = watchlist_csv
+            self.diary_path = diary_csv
+            self.watched_path = watched_csv
+            self.do_not_watchlist_path = do_not_watchlist_csv
         self._seen_films: Set[tuple] = set()
         self._do_not_watchlist_films: Set[tuple] = set()
         self._loaded = False
@@ -47,8 +67,10 @@ class LetterboxdCSVLoader:
         success = True
 
         # Load do-not-watchlist (always try to load, even if no path configured)
+        # Note: do-not-watchlist still downloads from blob storage (user-maintained file)
+        # but watchlist/diary come from extracted ZIP
         if self.do_not_watchlist_path:
-            # Download from blob storage with fallback to local
+            from blob_config_loader import download_config_file
             do_not_watchlist_path = download_config_file("do-not-watchlist.csv", self.do_not_watchlist_path)
             if Path(do_not_watchlist_path).exists():
                 if self._load_do_not_watchlist(do_not_watchlist_path):
@@ -58,17 +80,21 @@ class LetterboxdCSVLoader:
             else:
                 logger.debug("No do-not-watchlist CSV found (optional)")
 
-        # Load watchlist
+        # Load watchlist (from extracted ZIP in /tmp/ or data/)
         if self.watchlist_path:
-            if self._load_watchlist(self.watchlist_path):
-                logger.info(f"Loaded {len(self._watchlist_films)} films from watchlist CSV")
+            if Path(self.watchlist_path).exists():
+                if self._load_watchlist(self.watchlist_path):
+                    logger.info(f"Loaded {len(self._watchlist_films)} films from watchlist CSV")
+                else:
+                    logger.warning("Failed to load watchlist CSV")
+                    success = False
             else:
-                logger.warning("Failed to load watchlist CSV")
+                logger.warning(f"Watchlist CSV not found: {self.watchlist_path}")
                 success = False
         else:
             logger.info("No watchlist CSV configured")
 
-        # Try loading watched.csv (preferred) or diary.csv as fallback
+        # Try loading watched.csv (preferred) or diary.csv as fallback (from extracted ZIP)
         watched_loaded = False
         if self.watched_path:
             watched_path = Path(self.watched_path)
@@ -77,12 +103,15 @@ class LetterboxdCSVLoader:
                     logger.info(f"Loaded {len(self._seen_films)} films from watched CSV")
                     watched_loaded = True
 
-        # Only try diary if watched.csv wasn't found or failed
+        # Only try diary if watched.csv wasn't found or failed (from extracted ZIP)
         if not watched_loaded and self.diary_path:
-            if self._load_diary(self.diary_path):
-                logger.info(f"Loaded {len(self._seen_films)} films from diary CSV")
+            if Path(self.diary_path).exists():
+                if self._load_diary(self.diary_path):
+                    logger.info(f"Loaded {len(self._seen_films)} films from diary CSV")
+                else:
+                    logger.warning("Failed to load diary CSV")
             else:
-                logger.warning("Failed to load diary CSV")
+                logger.warning(f"Diary CSV not found: {self.diary_path}")
                 success = False
 
         self._loaded = success

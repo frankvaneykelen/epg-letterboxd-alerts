@@ -183,18 +183,22 @@ def extract_letterboxd_csvs(zip_path: Path, output_folder: str = "data") -> bool
         return False
 
 
-def import_latest_letterboxd_export(downloads_folder: str = None, output_folder: str = "data") -> bool:
+def import_latest_letterboxd_export(downloads_folder: str = None, output_folder: str = None) -> bool:
     """
     Find and extract the latest Letterboxd export from Azure Blob Storage or Downloads.
 
     Args:
         downloads_folder: Path to Downloads folder (optional, used as fallback)
-        output_folder: Destination folder for CSV files (default: 'data')
+        output_folder: Destination folder for CSV files (default: auto-detected based on environment)
 
     Returns:
         True if import was successful, False otherwise
     """
-    logger.info("Searching for latest Letterboxd export...")
+    # Auto-detect output folder if not specified
+    if output_folder is None:
+        output_folder = get_output_folder()
+    
+    logger.info(f"Searching for latest Letterboxd export... (will extract to: {output_folder})")
     
     # Try Azure Blob Storage first
     zip_path = download_from_blob_storage()
