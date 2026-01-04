@@ -7,6 +7,7 @@ import logging
 import csv
 from typing import Set, Dict, Any, Optional
 from pathlib import Path
+from blob_config_loader import download_config_file
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +48,10 @@ class LetterboxdCSVLoader:
 
         # Load do-not-watchlist (always try to load, even if no path configured)
         if self.do_not_watchlist_path:
-            do_not_path = Path(self.do_not_watchlist_path)
-            if do_not_path.exists():
-                if self._load_do_not_watchlist(self.do_not_watchlist_path):
+            # Download from blob storage with fallback to local
+            do_not_watchlist_path = download_config_file("do-not-watchlist.csv", self.do_not_watchlist_path)
+            if Path(do_not_watchlist_path).exists():
+                if self._load_do_not_watchlist(do_not_watchlist_path):
                     logger.info(f"Loaded {len(self._do_not_watchlist_films)} films from do-not-watchlist CSV")
                 else:
                     logger.warning("Failed to load do-not-watchlist CSV")

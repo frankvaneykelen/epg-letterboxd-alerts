@@ -310,7 +310,10 @@ def main(mytimer: func.TimerRequest) -> None:
         html_lines.append('</head>')
         html_lines.append('<body>')
         html_lines.append('    <div class="container-fluid py-4">')
-        html_lines.append('        <h1 class="mb-3">Recording Suggestions</h1>')
+        html_lines.append('        <div class="d-flex justify-content-between align-items-center mb-3">')
+        html_lines.append('            <h1 class="mb-0">Recording Suggestions</h1>')
+        html_lines.append('            <a href="new-series.html" class="btn btn-outline-primary">View New Series →</a>')
+        html_lines.append('        </div>')
         html_lines.append(f'        <p class="text-muted">Generated: {now.strftime("%Y-%m-%d %H:%M:%S")} | Total suggestions: {len(suggestions)}</p>')
         html_lines.append('        <div class="table-responsive">')
         html_lines.append('            <table class="table table-striped table-hover">')
@@ -498,15 +501,20 @@ def main(mytimer: func.TimerRequest) -> None:
         html_lines.append('</body>')
         html_lines.append('</html>')
         
-        # Save to HTML file
-        filename = f"recording-suggestions-{timestamp}.html"
-        filepath = Path("data") / filename
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(filepath, "w", encoding="utf-8") as f:
+        # Save to HTML files
+        # Save to wwwroot for hosting
+        wwwroot_path = Path("wwwroot") / "index.html"
+        wwwroot_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(wwwroot_path, "w", encoding="utf-8") as f:
             f.write("\n".join(html_lines))
         
-        logger.info(f"\nSaved recording suggestions to {filepath}")
+        # Also save timestamped copy to data folder
+        data_path = Path("data") / f"recording-suggestions-{timestamp}.html"
+        data_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(data_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(html_lines))
+        
+        logger.info(f"\nSaved recording suggestions to {wwwroot_path} and {data_path}")
         
         # Log results to console
         logger.info(f"\nGenerated {len(suggestions)} recording suggestions")

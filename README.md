@@ -110,7 +110,7 @@ Replace:
 - `<resource-group>`: Resource group name (e.g., `rg-epg-letterboxd-prod`)
 - `<storage-account-name>`: Storage account name (e.g., `epgletterboxdprod`)
 
-This allows the script to download Letterboxd exports from Azure Blob Storage when running locally. Without this role, it will fall back to the local `downloads/` folder.
+This allows the script to download Letterboxd exports from Azure Blob Storage when running locally. Without this role, it will log an `AuthorizationPermissionMismatch` warning and fall back to the local `downloads/` folder.
 
 ### 6. Local Testing
 

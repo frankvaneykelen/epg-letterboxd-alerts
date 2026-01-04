@@ -11,6 +11,7 @@ from pathlib import Path
 
 from classes.tvsystemio import ChannelFileIo
 from classes.ziggoepggrabber import ZiggoGoEpgGrabber, GrabException
+from blob_config_loader import download_config_file
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +86,14 @@ class EPGParser:
         """
         logger.info("Fetching EPG from Ziggo using ziggogo-epg library...")
         
+        # Download channel file from blob storage with fallback to local
+        blob_filename = Path(self.channel_file).name
+        channel_file_path = download_config_file(blob_filename, self.channel_file)
+        
         try:
             # Setup file-based IO
             tv_system_io = ChannelFileIo(
-                channel_list_filename=self.channel_file,
+                channel_list_filename=channel_file_path,
                 xmltv_filename=self.xmltv_file
             )
 

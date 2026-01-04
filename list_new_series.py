@@ -16,6 +16,7 @@ import yaml
 import unicodedata
 from dotenv import load_dotenv
 import fetch_epg
+from blob_config_loader import download_config_file
 
 # Load environment variables from .env file
 load_dotenv()
@@ -138,19 +139,20 @@ def list_non_films():
         print(f"Error: {xml_path} not found")
         return
     
-    # Load channel filter from channels-series.txt
+    # Load channel filter from channels-series.txt (try blob storage first)
     channels_file = Path("data/channels-series.txt")
+    channels_file_path = download_config_file("channels-series.txt", str(channels_file))
     allowed_channels = set()
-    if channels_file.exists():
-        with open(channels_file, 'r', encoding='utf-8') as f:
+    if Path(channels_file_path).exists():
+        with open(channels_file_path, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 # Skip comments and empty lines
                 if line and not line.startswith('#'):
                     allowed_channels.add(line)
-        print(f"Loaded {len(allowed_channels)} channels from {channels_file}")
+        print(f"Loaded {len(allowed_channels)} channels from {channels_file_path}")
     else:
-        print(f"Warning: {channels_file} not found, processing all channels")
+        print(f"Warning: {channels_file_path} not found, processing all channels")
     
     print("Parsing XML file...")
     tree = ET.parse(xml_path)
@@ -334,7 +336,10 @@ def list_non_films():
     html_lines.append('</head>')
     html_lines.append('<body>')
     html_lines.append('    <div class="container-fluid py-4">')
-    html_lines.append('        <h1 class="mb-3">New Series Starting (First Episodes)</h1>')
+    html_lines.append('        <div class="d-flex justify-content-between align-items-center mb-3">')
+    html_lines.append('            <h1 class="mb-0">New Series Starting (First Episodes)</h1>')
+    html_lines.append('            <a href="index.html" class="btn btn-outline-primary">← View Films</a>')
+    html_lines.append('        </div>')
     html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total new series: {non_film_count}</p>')
     html_lines.append('        <p class="text-muted">Showing only first episodes (0.0., 0.1., 1.0., 1.1.) from non-Film programmes</p>')
     html_lines.append('        <div class="table-responsive">')
@@ -504,15 +509,22 @@ def list_non_films():
     html_lines.append('</body>')
     html_lines.append('</html>')
     
-    # Save to HTML file
+    # Save to HTML files
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    output_path = Path("data") / f"new-series-{timestamp}.html"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    with open(output_path, 'w', encoding='utf-8') as f:
+    # Save to wwwroot for hosting
+    wwwroot_path = Path("wwwroot") / "new-series.html"
+    wwwroot_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(wwwroot_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(html_lines))
     
-    print(f"Saved {non_film_count} non-Film programmes to {output_path}")
+    # Also save timestamped copy to data folder
+    data_path = Path("data") / f"new-series-{timestamp}.html"
+    data_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(data_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(html_lines))
+    
+    print(f"Saved {non_film_count} non-Film programmes to {wwwroot_path} and {data_path}")
 
 if __name__ == "__main__":
     list_non_films()
