@@ -2,15 +2,9 @@
 .vscode
 __pycache__
 *.pyc
-.python_packages
 .venv
-data/*.html
-data/*.xml
-data/*.sqlite3
-data/*.zip
-data/*.csv
+data/
 docs/
 infra/
 .env
-*.md
-!requirements.txt
+
