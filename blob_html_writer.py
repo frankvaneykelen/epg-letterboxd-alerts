@@ -5,6 +5,7 @@ Upload HTML files to Azure Blob Storage.
 import logging
 from pathlib import Path
 from typing import Optional
+from azure.storage.blob import ContentSettings
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def upload_html_to_blob(html_content: str, blob_name: str, container_name: str =
         blob_client.upload_blob(
             html_content.encode('utf-8'),
             overwrite=True,
-            content_settings={'content_type': 'text/html; charset=utf-8'}
+            content_settings=ContentSettings(content_type='text/html; charset=utf-8')
         )
         
         logger.info(f"Successfully uploaded {blob_name} to blob storage container '{container_name}'")
