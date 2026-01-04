@@ -37,6 +37,15 @@ def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", 
         if output_file.startswith("data/"):
             output_file = f"/tmp/{Path(output_file).name}"
         print(f"Running in Azure - using /tmp for database: {database_file}")
+        
+        # Download cache from blob storage if it exists
+        try:
+            from blob_config_loader import download_config_file
+            downloaded_cache = download_config_file("ziggogoepg_cache.sqlite3", database_file)
+            if Path(downloaded_cache).exists():
+                print(f"Downloaded SQLite cache from blob storage ({Path(downloaded_cache).stat().st_size} bytes)")
+        except Exception as e:
+            print(f"Could not download cache: {e}")
     else:
         database_file = "data/ziggogoepg_cache.sqlite3"
     
@@ -56,9 +65,33 @@ def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", 
         print("Fetching EPG data...")
         grabber.grab()
         
+        # Upload cache back to blob storage (in Azure)
+        if is_azure:
+            try:
+                from azure.storage.blob import BlobClient
+                from azure.identity import DefaultAzureCredential
+                
+                storage_account = "epgletterboxdprod"
+                account_url = f"https://{storage_account}.blob.core.windows.net"
+                
+                blob_client = BlobClient(
+                    account_url=account_url,
+                    container_name="data",
+                    blob_name="ziggogoepg_cache.sqlite3",
+                    credential=DefaultAzureCredential()
+                )
+                
+                with open(database_file, 'rb') as cache_file:
+                    blob_client.upload_blob(cache_file, overwrite=True)
+                
+                cache_size = Path(database_file).stat().st_size
+                print(f"Uploaded SQLite cache to blob storage ({cache_size} bytes)")
+            except Exception as e:
+                print(f"Could not upload cache: {e}")
+        
         print("\n✓ Successfully fetched EPG data!")
         print(f"  Output: {output_file}")
-        print("  Cache:  data/ziggogoepg_cache.sqlite3")
+        print(f"  Cache:  {database_file}")
         
         return True
         

@@ -104,6 +104,18 @@ class EPGParser:
                 database_file = f"/tmp/{Path(self.database_file).name}"
                 xmltv_file = f"/tmp/{Path(self.xmltv_file).name}"
                 logger.info(f"Running in Azure - using /tmp for SQLite: {database_file}")
+                
+                # Download cache from blob storage if it exists (persists across cold starts)
+                try:
+                    from blob_config_loader import download_config_file
+                    cache_filename = Path(self.database_file).name
+                    downloaded_cache = download_config_file(cache_filename, database_file)
+                    if Path(downloaded_cache).exists():
+                        logger.info(f"Downloaded SQLite cache from blob storage ({Path(downloaded_cache).stat().st_size} bytes)")
+                    else:
+                        logger.info("No existing cache found in blob storage - will create fresh cache")
+                except Exception as e:
+                    logger.warning(f"Could not download cache from blob storage: {e}")
             else:
                 # Local development - use configured paths
                 database_file = self.database_file
@@ -127,6 +139,30 @@ class EPGParser:
 
             # Perform grab
             grabber.grab(generate_only=False)
+            
+            # Upload cache back to blob storage (in Azure)
+            if is_azure:
+                try:
+                    from azure.storage.blob import BlobClient
+                    from azure.identity import DefaultAzureCredential
+                    
+                    storage_account = "epgletterboxdprod"
+                    account_url = f"https://{storage_account}.blob.core.windows.net"
+                    
+                    blob_client = BlobClient(
+                        account_url=account_url,
+                        container_name="data",
+                        blob_name=cache_filename,
+                        credential=DefaultAzureCredential()
+                    )
+                    
+                    with open(database_file, 'rb') as cache_file:
+                        blob_client.upload_blob(cache_file, overwrite=True)
+                    
+                    cache_size = Path(database_file).stat().st_size
+                    logger.info(f"Uploaded SQLite cache to blob storage ({cache_size} bytes)")
+                except Exception as e:
+                    logger.warning(f"Could not upload cache to blob storage: {e}")
             
             # Return path to XMLTV file
             return xmltv_file
