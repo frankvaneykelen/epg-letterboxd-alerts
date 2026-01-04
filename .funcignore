@@ -6,5 +6,6 @@ __pycache__
 data/
 docs/
 infra/
+wwwroot/
 .env
 
