@@ -52,12 +52,6 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
 }
 
-// Enable static website hosting
-resource staticWebsite 'Microsoft.Storage/storageAccounts/fileServices@2023-01-01' = {
-  parent: storageAccount
-  name: 'default'
-}
-
 // Note: Static website configuration requires Azure CLI or Portal
 // Run after deployment: az storage blob service-properties update --account-name <name> --static-website --index-document index.html
 

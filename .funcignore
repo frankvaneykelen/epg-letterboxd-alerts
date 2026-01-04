@@ -7,5 +7,11 @@ data/
 docs/
 infra/
 wwwroot/
+downloads/
 .env
+.env.example
+*.PublishSettings
+LICENSE
+README.md
+PROMPT.md
 
