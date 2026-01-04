@@ -71,11 +71,14 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   name: appServicePlanName
   location: location
+  kind: 'linux'
   sku: {
     name: 'Y1'
     tier: 'Dynamic'
   }
-  properties: {}
+  properties: {
+    reserved: true
+  }
 }
 
 // Function App
@@ -91,7 +94,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     reserved: true
     httpsOnly: true
     siteConfig: {
-      pythonVersion: '3.11'
+      linuxFxVersion: 'Python|3.11'
       appSettings: [
         {
           name: 'AzureWebJobsStorage'
