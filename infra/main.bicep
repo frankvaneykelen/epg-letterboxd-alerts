@@ -38,17 +38,20 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     allowBlobPublicAccess: false
     supportsHttpsTrafficOnly: true
     accessTier: 'Hot'
-    // Network rules for IP restrictions
+    // Network rules for IP restrictions - TEMPORARILY DISABLED FOR DEPLOYMENT
+    // Uncomment after first successful deployment
+    /*
     networkAcls: {
       bypass: 'AzureServices'
       defaultAction: 'Deny'
       ipRules: [
         { value: '213.73.141.240' } // K202
-        // Add your IP addresses here - examples:
-        // { value: '1.2.3.4' }          // Single IP
-        // { value: '10.0.0.0/24' }      // IP range in CIDR notation
+        // Add more IPs here:
+        // { value: '1.2.3.4' }
+        // { value: '10.0.0.0/24' }
       ]
     }
+    */
   }
 }
 
