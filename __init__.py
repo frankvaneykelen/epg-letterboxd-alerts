@@ -507,25 +507,32 @@ def main(mytimer: func.TimerRequest) -> None:
         # Upload to blob storage (for Azure Functions and static website hosting)
         upload_success = upload_html_to_blob(html_content, "index.html")  # Uses $web container by default
         
-        # Also save local copy for development/backup
-        try:
-            local_path = Path("wwwroot") / "index.html"
-            local_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(local_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            logger.info(f"Saved local copy to {local_path}")
-        except Exception as e:
-            logger.warning(f"Could not save local copy: {e}")
+        # Only save local copies when running locally (not in Azure with read-only filesystem)
+        import os
+        is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
+                   os.environ.get('WEBSITE_INSTANCE_ID') or 
+                   os.environ.get('WEBSITE_SITE_NAME'))
         
-        # Also save timestamped copy to data folder (local only)
-        try:
-            data_path = Path("data") / f"recording-suggestions-{timestamp}.html"
-            data_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(data_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            logger.info(f"Saved timestamped copy to {data_path}")
-        except Exception as e:
-            logger.warning(f"Could not save timestamped copy: {e}")
+        if not is_azure:
+            # Save local copy for development/backup
+            try:
+                local_path = Path("wwwroot") / "index.html"
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(local_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                logger.info(f"Saved local copy to {local_path}")
+            except Exception as e:
+                logger.warning(f"Could not save local copy: {e}")
+            
+            # Save timestamped copy to data folder
+            try:
+                data_path = Path("data") / f"recording-suggestions-{timestamp}.html"
+                data_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(data_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                logger.info(f"Saved timestamped copy to {data_path}")
+            except Exception as e:
+                logger.warning(f"Could not save timestamped copy: {e}")
         
         if upload_success:
             logger.info("Successfully uploaded index.html to blob storage")
