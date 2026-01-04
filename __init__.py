@@ -508,7 +508,6 @@ def main(mytimer: func.TimerRequest) -> None:
         upload_success = upload_html_to_blob(html_content, "index.html")  # Uses $web container by default
         
         # Only save local copies when running locally (not in Azure with read-only filesystem)
-        import os
         is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
                    os.environ.get('WEBSITE_INSTANCE_ID') or 
                    os.environ.get('WEBSITE_SITE_NAME'))
