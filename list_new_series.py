@@ -113,16 +113,20 @@ def search_tv_series(title: str, year: int = None, api_key: str = None, country:
 def list_non_films():
     """Parse ziggogo.xml and list all programmes without Film category."""
     
+    logger.info("Starting series EPG processing...")
+    
     # Fetch/update EPG data from Ziggo first
     try:
+        logger.info("Fetching series EPG data from Ziggo...")
         fetch_epg.fetch_epg(
             channel_file="data/channels-series.txt",
             output_file="data/ziggogo-series.xml",
             scan_days=14
         )
+        logger.info("Series EPG fetch completed successfully")
     except Exception as e:
-        print(f"Warning: EPG update failed: {e}")
-        print("Continuing with existing data...")
+        logger.error(f"EPG update failed: {e}", exc_info=True)
+        logger.warning("Continuing with existing data...")
     
     # Load config for TMDb API key
     config_path = Path("config.json")
@@ -137,7 +141,7 @@ def list_non_films():
     
     xml_path = Path("data/ziggogo-series.xml")
     if not xml_path.exists():
-        print(f"Error: {xml_path} not found")
+        logger.error(f"Error: {xml_path} not found - cannot process series")
         return
     
     # Load channel filter from channels-series.txt (try blob storage first)

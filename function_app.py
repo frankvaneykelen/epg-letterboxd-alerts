@@ -12,17 +12,17 @@ from blob_html_writer import download_html_from_blob
 app = func.FunctionApp()
 
 
-@app.timer_trigger(arg_name="mytimer", schedule="0 0 */6 * * *")  # Every 6 hours at :00
-def epg_letterboxd_alerts_timer(mytimer: func.TimerRequest) -> None:
+@app.timer_trigger(arg_name="films_timer", schedule="0 0 */6 * * *")  # Every 6 hours at :00
+def epg_letterboxd_alerts_timer(films_timer: func.TimerRequest) -> None:
     """
     TimerTrigger function for EPG-Letterboxd Films Alerts.
     Runs every 6 hours at :00 (0:00, 6:00, 12:00, 18:00).
     """
-    main(mytimer)
+    main(films_timer)
 
 
-@app.timer_trigger(arg_name="mytimer", schedule="0 0 1,7,13,19 * * *")  # 1 hour after films
-def epg_letterboxd_series_timer(mytimer: func.TimerRequest) -> None:
+@app.timer_trigger(arg_name="series_timer", schedule="0 0 1,7,13,19 * * *")  # 1 hour after films
+def epg_letterboxd_series_timer(series_timer: func.TimerRequest) -> None:
     """
     TimerTrigger function for EPG-Letterboxd Series Alerts.
     Runs 1 hour after films timer (1:00, 7:00, 13:00, 19:00).

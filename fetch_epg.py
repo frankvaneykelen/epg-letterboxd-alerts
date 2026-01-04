@@ -4,6 +4,8 @@ Universal EPG fetcher for both film and series channel lists
 """
 import logging
 import argparse
+import os
+from pathlib import Path
 from classes.tvsystemio import ChannelFileIo
 from classes.ziggoepggrabber import ZiggoGoEpgGrabber
 
@@ -24,6 +26,20 @@ def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", 
     print(f"Scan days:    {scan_days}")
     print("\nThis may take several minutes...\n")
     
+    # Determine database file path (use /tmp in Azure)
+    is_azure = (os.environ.get('WEBSITE_INSTANCE_ID') or 
+               os.environ.get('WEBSITE_SITE_NAME') or 
+               os.environ.get('FUNCTIONS_WORKER_RUNTIME'))
+    
+    if is_azure:
+        database_file = "/tmp/ziggogoepg_cache.sqlite3"
+        # Also adjust output file to /tmp if it's in data/
+        if output_file.startswith("data/"):
+            output_file = f"/tmp/{Path(output_file).name}"
+        print(f"Running in Azure - using /tmp for database: {database_file}")
+    else:
+        database_file = "data/ziggogoepg_cache.sqlite3"
+    
     try:
         tv_io = ChannelFileIo(
             channel_list_filename=channel_file,
@@ -34,7 +50,7 @@ def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", 
             tv_io,
             scan_days=scan_days,
             configuration_file="ziggo-nl",
-            database_file="data/ziggogoepg_cache.sqlite3"
+            database_file=database_file
         )
         
         print("Fetching EPG data...")
