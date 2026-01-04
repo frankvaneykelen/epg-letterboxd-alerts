@@ -194,7 +194,7 @@ The Ziggo settings in `config.json`:
 }
 ```
 
-- `scan_days`: Number of days to fetch (1-14, default 7)
+- `scan_days`: Number of days to fetch (1-7, default 7)
 - `channel_file`: Path to channel list file
 - `database_file`: SQLite cache location
 

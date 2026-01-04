@@ -71,7 +71,7 @@ class EPGParser:
         self.channel_file = self.config.get("channel_file", "data/channels.txt")
         self.xmltv_file = self.config.get("xmltv_file", "data/ziggogo.xml")
         self.database_file = self.config.get("database_file", "data/ziggogoepg_cache.sqlite3")
-        self.scan_days = self.config.get("scan_days", 14)
+        self.scan_days = self.config.get("scan_days", 7)
         self.configuration = self.config.get("configuration", "ziggo-nl")
 
     def fetch_epg(self) -> str:

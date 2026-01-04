@@ -11,14 +11,14 @@ from classes.ziggoepggrabber import ZiggoGoEpgGrabber
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
-def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", scan_days=14):
+def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", scan_days=7):
     """
     Fetch EPG from Ziggo and save to XMLTV file
     
     Args:
         channel_file: Path to channel list file
         output_file: Path to output XMLTV file
-        scan_days: Number of days to fetch (default: 14)
+        scan_days: Number of days to fetch (default: 7)
     """
     print("\n=== Fetching EPG from Ziggo ===\n")
     print(f"Channel list: {channel_file}")
@@ -100,8 +100,8 @@ Examples:
     parser.add_argument(
         "-d", "--days",
         type=int,
-        default=14,
-        help="Number of days to fetch (default: 14)"
+        default=7,
+        help="Number of days to fetch (default: 7)"
     )
     
     parser.add_argument(
