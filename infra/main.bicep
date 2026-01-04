@@ -77,6 +77,32 @@ resource dataStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
   parent: dataStorageAccount
   name: 'default'
+  properties: {
+    cors: {
+      corsRules: [
+        {
+          allowedOrigins: [
+            'https://portal.azure.com'
+          ]
+          allowedMethods: [
+            'GET'
+            'HEAD'
+            'POST'
+            'PUT'
+            'DELETE'
+            'OPTIONS'
+          ]
+          allowedHeaders: [
+            '*'
+          ]
+          exposedHeaders: [
+            '*'
+          ]
+          maxAgeInSeconds: 86400
+        }
+      ]
+    }
+  }
 }
 
 // Container for Letterboxd ZIP files
