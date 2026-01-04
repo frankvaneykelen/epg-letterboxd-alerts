@@ -50,6 +50,9 @@ class LetterboxdCSVLoader:
             self.diary_path = diary_csv
             self.watched_path = watched_csv
             self.do_not_watchlist_path = do_not_watchlist_csv
+        
+        # Cache loaded data - store by (title, year) tuple
+        self._watchlist_films: Set[tuple] = set()
         self._seen_films: Set[tuple] = set()
         self._do_not_watchlist_films: Set[tuple] = set()
         self._loaded = False
