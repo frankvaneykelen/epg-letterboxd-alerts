@@ -101,7 +101,7 @@ Would you like help:
     "channel_file": "data/channels.txt",
     "xmltv_file": "data/ziggogo.xml",
     "database_file": "data/ziggogoepg_cache.sqlite3",
-    "scan_days": 7,
+    "scan_days": 14,
     "configuration": "ziggo-nl"
   }
 }

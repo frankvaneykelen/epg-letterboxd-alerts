@@ -13,6 +13,10 @@ Combine Ziggo's EPG (XMLTV) with Letterboxd film data to generate personalized "
 - ☁️ Runs as Azure Function (TimerTrigger)
 - 💾 SQLite caching for efficient EPG updates
 
+![Film Recording Suggestions](docs/images/recording-suggestions.png)
+
+![New Series Starting](docs/images/new-series-starting-first-episodes.png)
+
 ## Setup
 
 ### 1. Clone and Install
@@ -54,63 +58,24 @@ Edit `.env` (Letterboxd OAuth token only needed if using API mode instead of CSV
 ```env
 # TMDb API Configuration
 TMDB_API_KEY=your_tmdb_api_key_here
-
-# Letterboxd OAuth Configuration (only needed for API mode)
-# LETTERBOXD_OAUTH_TOKEN=your_letterboxd_oauth_token_here
-
-# TVHeadend Configuration
-TVHEADEND_USERNAME=admin
-TVHEADEND_PASSWORD=your_tvheadend_password_here
 ```
 
 **Important:** Never commit `.env` to version control. It's already in `.gitignore`.
 
-### 3. Export Letterboxd Data (Optional)
-
-If you want Letterboxd integration:
-
-**Option A: Automatic Import (Recommended)**
+### 3. Export Letterboxd Data
 
 1. **Export your data from Letterboxd:**
    - Go to https://letterboxd.com/settings/data/
    - Click **Export your data**
-   - Download the ZIP file to your the `data` folder in this repo (keep the default name `letterboxd-*.zip`)
+   - Download the ZIP file to the `data` folder in this repo (keep the default name `letterboxd-*.zip`)
 
-2. **Enable auto-import in config.json:**
-   ```json
-   {
-     "letterboxd": {
-       "enabled": true,
-       "auto_import": true
-     }
-   }
-   ```
-
-3. The function will automatically find and extract the latest ZIP from Downloads on each run.
-
-**Option B: Manual Import**
-
-1. Export your data from Letterboxd:
-   - Go to https://letterboxd.com/settings/data/
-   - Click **Export your data**
-   - Download the ZIP file
-
-2. **Run the import utility:**
-   ```bash
-   python import_letterboxd.py
-   ```
-
-3. **Or manually extract:**
-   - Unzip the downloaded file
-   - Copy `diary.csv`, `watched.csv`, and `watchlist.csv` to `data/` folder
-
-4. **Optional: Create a do-not-watchlist (blocklist):**
+2. **Optional: Create a do-not-watchlist (blocklist):**
    - Create `data/do-not-watchlist.csv` to exclude unwanted movies from suggestions
    - See `data/do-not-watchlist.csv.example` for format
    - Useful for filtering out children's movies, documentaries you're not interested in, etc.
    - Supports ±1 year tolerance for matching (same as watched.csv)
 
-5. **Enable in config.json:**
+3. **Enable in config.json:**
    ```json
    {
      "letterboxd": {
@@ -118,8 +83,6 @@ If you want Letterboxd integration:
      }
    }
    ```
-
-See [LETTERBOXD_CSV_EXPORT.md](LETTERBOXD_CSV_EXPORT.md) for detailed instructions.
 
 ### 4. Configure Settings
 
@@ -207,7 +170,7 @@ The Ziggo settings in `config.json`:
     "channel_file": "data/channels.txt",
     "xmltv_file": "data/ziggogo.xml",
     "database_file": "data/ziggogoepg_cache.sqlite3",
-    "scan_days": 7,
+    "scan_days": 24,
     "configuration": "ziggo-nl"
   }
 }
@@ -220,6 +183,48 @@ The Ziggo settings in `config.json`:
 **Important**: Run the EPG fetcher **at most twice per day** to avoid overloading Ziggo's servers. The cache ensures subsequent runs are fast.
 
 For detailed information, see [ZIGGOGO_EPG_INTEGRATION.md](ZIGGOGO_EPG_INTEGRATION.md).
+
+## TV Series Discovery
+
+The `list_non_films.py` script helps you discover new TV series starting on Ziggo channels. It automatically fetches EPG data and finds first episodes of series.
+
+### Features
+
+- 📺 Automatically fetches EPG from Ziggo (with SQLite caching)
+- 🎬 TMDb integration for ratings and poster images
+- 🔍 Filters for first episodes only (0.0., 0.1., 1.0., 1.1.)
+- 🎯 Separate channel list for non-film content
+- 📊 Interactive HTML output with sortable tables
+- 🖼️ Poster images with modal viewer
+- 🔗 Direct links to Ziggo TV, TMDb, and Letterboxd
+
+### Usage
+
+```bash
+python list_non_films.py
+```
+
+The script will:
+1. Fetch EPG data from Ziggo (64 channels configured in `data/channels-series.txt`)
+2. Filter for non-film programmes (excludes: Film, Kinderen, Reality, etc.)
+3. Find first episodes of new series
+4. Look up ratings and posters from TMDb
+5. Generate an HTML report in `data/new-series-{timestamp}.html`
+
+### Configuration
+
+Edit `data/channels-series.txt` to customize which channels to scan:
+
+```txt
+# Entertainment channels
+NPO 1
+NPO 2
+RTL 4
+NET5
+# etc.
+```
+
+The script uses the same TMDb API key and SQLite cache as the main function.
 
 ## Deployment to Azure Functions
 
@@ -261,11 +266,11 @@ git push origin main
 epg-letterboxd-alerts/
 ├── __init__.py              # Main Azure Function entry point
 ├── function_app.py          # Azure Functions app configuration
+├── list_non_films.py        # TV series discovery tool (first episodes)
 ├── epg_parser.py            # XMLTV EPG parser
 ├── tmdb_client.py           # TMDb API client
 ├── letterboxd_client.py     # Letterboxd API client (legacy)
 ├── letterboxd_csv_loader.py # Letterboxd CSV data loader
-├── tvheadend_client.py      # TVHeadend API client
 ├── config.json              # Non-secret configuration
 ├── requirements.txt         # Python dependencies
 ├── .env.example             # Environment variable template

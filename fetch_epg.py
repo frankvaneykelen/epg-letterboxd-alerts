@@ -1,0 +1,107 @@
+"""
+Fetch EPG data from Ziggo
+Universal EPG fetcher for both film and series channel lists
+"""
+import logging
+import argparse
+from classes.tvsystemio import ChannelFileIo
+from classes.ziggoepggrabber import ZiggoGoEpgGrabber
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+
+def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", scan_days=14):
+    """
+    Fetch EPG from Ziggo and save to XMLTV file
+    
+    Args:
+        channel_file: Path to channel list file
+        output_file: Path to output XMLTV file
+        scan_days: Number of days to fetch (default: 14)
+    """
+    print("\n=== Fetching EPG from Ziggo ===\n")
+    print(f"Channel list: {channel_file}")
+    print(f"Output file:  {output_file}")
+    print(f"Scan days:    {scan_days}")
+    print("\nThis may take several minutes...\n")
+    
+    try:
+        tv_io = ChannelFileIo(
+            channel_list_filename=channel_file,
+            xmltv_filename=output_file
+        )
+        
+        grabber = ZiggoGoEpgGrabber(
+            tv_io,
+            scan_days=scan_days,
+            configuration_file="ziggo-nl",
+            database_file="data/ziggogoepg_cache.sqlite3"
+        )
+        
+        print("Fetching EPG data...")
+        grabber.grab()
+        
+        print("\n✓ Successfully fetched EPG data!")
+        print(f"  Output: {output_file}")
+        print("  Cache:  data/ziggogoepg_cache.sqlite3")
+        
+        return True
+        
+    except Exception as e:
+        print(f"\n✗ Error: {e}\n")
+        import traceback
+        traceback.print_exc()
+        return False
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Fetch EPG data from Ziggo",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Fetch for film channels (default)
+  python fetch_epg.py
+  
+  # Fetch for TV series channels
+  python fetch_epg.py --series
+  
+  # Custom channel list and output
+  python fetch_epg.py -c data/my-channels.txt -o data/my-epg.xml
+        """
+    )
+    
+    parser.add_argument(
+        "-c", "--channels",
+        default="data/channels.txt",
+        help="Channel list file (default: data/channels.txt)"
+    )
+    
+    parser.add_argument(
+        "-o", "--output",
+        default="data/ziggogo.xml",
+        help="Output XMLTV file (default: data/ziggogo.xml)"
+    )
+    
+    parser.add_argument(
+        "-d", "--days",
+        type=int,
+        default=14,
+        help="Number of days to fetch (default: 14)"
+    )
+    
+    parser.add_argument(
+        "--series",
+        action="store_true",
+        help="Use series channel list and output (channels-series.txt → ziggogo-series.xml)"
+    )
+    
+    args = parser.parse_args()
+    
+    # Override with series defaults if --series flag is used
+    if args.series:
+        channel_file = "data/channels-series.txt"
+        output_file = "data/ziggogo-series.xml"
+    else:
+        channel_file = args.channels
+        output_file = args.output
+    
+    fetch_epg(channel_file, output_file, args.days)

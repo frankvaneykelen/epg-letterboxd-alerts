@@ -1,0 +1,72 @@
+# Ziggo Channel List for EPG
+# Add your favorite channels here (one per line)
+# Remove # to uncomment channels you want to track
+# You can get the full channel list by running: python -c "from classes.ziggoepggrabber import *; from classes.tvsystemio import *; grabber = ZiggoGoEpgGrabber(ChannelFileIo(), 1, 'ziggo-nl', 'data/cache.db'); channels = grabber.get_channel_list(); [print(c['name']) for c in channels]"
+
+# Ziggo channels with movies broadcast without dubbing and with EN or NL subtitles
+NPO 1
+NPO 2
+NPO 3
+RTL 4
+RTL 5
+SBS6
+RTL 7
+Veronica / Disney Jr.
+Net5
+RTL 8
+STAR Channel
+RTL Z
+Comedy Central
+Paramount Network
+Discovery
+ESPN
+SBS9
+ID
+TLC
+BBC NL
+MTV
+24Kitchen
+Eurosport 1
+HGTV
+National Geographic
+HISTORY
+Nickelodeon
+ONS
+VRT 1
+VRT CANVAS
+BBC One
+BBC Two
+TV5Monde
+NPO 1 Extra
+NPO 2 Extra
+NPO Politiek en Nieuws
+RTL Crime
+Crime+Investigation
+XITE
+Shorts TV
+E!
+OUTTV
+Fashion TV HD
+MyZen TV
+Horse & Country TV
+RTL Lounge
+Curiosity Channel
+Discovery Science
+National Geographic WILD
+Love Nature
+Animal Planet
+Family7
+Dreamworks
+Disney Channel
+CNN
+BBC News
+Euronews
+Aljazeera English
+CNBC Europe
+Stingray DJAZZ
+Mezzo
+Stingray Classica
+NH
+NPO Soul & Jazz
+
+# Add more channels as needed
