@@ -121,7 +121,7 @@ def list_non_films():
         fetch_epg.fetch_epg(
             channel_file="data/channels-series.txt",
             output_file="data/ziggogo-series.xml",
-            scan_days=14
+            scan_days=7  # 7 days for series (fewer programmes to fetch)
         )
         logger.info("Series EPG fetch completed successfully")
     except Exception as e:
