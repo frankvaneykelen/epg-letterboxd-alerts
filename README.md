@@ -280,8 +280,23 @@ See [infra/README.md](infra/README.md) for detailed deployment instructions.
 
 Configure these in GitHub Settings → Secrets and variables → Actions:
 
-- `AZURE_FUNCTION_APP_NAME`: Your Azure Function App name (from Bicep deployment)
-- `AZURE_FUNCTION_PUBLISH_PROFILE`: Download from Azure Portal
+1. **Get the publish profile from Azure Portal**:
+   - Navigate to your Function App in the Azure Portal
+   - Click **"Get publish profile"** or **"Download publish profile"** in the top toolbar
+   - This downloads a `.PublishSettings` XML file
+
+2. **Add secrets to GitHub**:
+   - Go to your GitHub repository
+   - Click **Settings** → **Secrets and variables** → **Actions**
+   - Click **"New repository secret"** for each:
+   
+   **Secret 1:**
+   - Name: `AZURE_FUNCTION_APP_NAME`
+   - Value: `epg-letterboxd-prod-func` (or your Function App name from Bicep deployment)
+   
+   **Secret 2:**
+   - Name: `AZURE_FUNCTION_PUBLISH_PROFILE`
+   - Value: Open the downloaded `.PublishSettings` file and paste the entire XML content
 
 #### Application Settings (configured via Bicep)
 

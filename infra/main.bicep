@@ -91,6 +91,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     reserved: true
     httpsOnly: true
     siteConfig: {
+      pythonVersion: '3.11'
       appSettings: [
         {
           name: 'AzureWebJobsStorage'
@@ -111,6 +112,10 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'FUNCTIONS_WORKER_RUNTIME'
           value: 'python'
+        }
+        {
+          name: 'WEBSITE_RUN_FROM_PACKAGE'
+          value: '1'
         }
         {
           name: 'APPINSIGHTS_INSTRUMENTATIONKEY'
