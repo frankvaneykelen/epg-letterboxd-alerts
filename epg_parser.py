@@ -97,10 +97,12 @@ class EPGParser:
                 # Use /tmp for database (only writable location in Azure Functions)
                 database_file = f"/tmp/{Path(self.database_file).name}"
                 xmltv_file = f"/tmp/{Path(self.xmltv_file).name}"
+                logger.info(f"Running in Azure - using /tmp for SQLite: {database_file}")
             else:
                 # Local development - use configured paths
                 database_file = self.database_file
                 xmltv_file = self.xmltv_file
+                logger.info(f"Running locally - using configured paths: {database_file}")
             
             # Setup file-based IO
             tv_system_io = ChannelFileIo(
