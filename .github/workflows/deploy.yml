@@ -36,7 +36,7 @@ jobs:
           zip -r dist/epg-letterboxd-alerts.zip . -x ".git*" "dist/*" ".venv/*" "*.pyc" "__pycache__/*"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: function-package
           path: dist/epg-letterboxd-alerts.zip

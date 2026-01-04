@@ -317,6 +317,8 @@ def main(mytimer: func.TimerRequest) -> None:
         html_lines.append('                <thead>')
         html_lines.append('                    <tr>')
         html_lines.append('                        <th>Title</th>')
+        html_lines.append('                        <th>Poster</th>')
+        html_lines.append('                        <th>Subtitle / Description</th>')
         html_lines.append('                        <th>Rating</th>')
         html_lines.append('                        <th>LB</th>')
         html_lines.append('                        <th>Year</th>')
@@ -333,16 +335,32 @@ def main(mytimer: func.TimerRequest) -> None:
         
         for suggestion in suggestions:
             broadcast = suggestion["broadcast"]
-            # Build title with subtitle in parentheses
-            title_text = broadcast.title
-            if broadcast.subtitle:
-                title_text = f"{broadcast.title} ({broadcast.subtitle})"
+            # Build title link (without subtitle)
             full_title = broadcast.title
             search_url = f"https://www.ziggogo.tv/nl/epg/initial/search/{quote(full_title)}%20"
-            description = broadcast.description if broadcast.description else ""
-            # Escape for HTML
-            description_escaped = description.replace('"', '&quot;').replace("'", '&#39;')
-            title_html = f'<a href="{search_url}" target="ziggogo" title="{description_escaped}">{title_text}</a>'
+            title_html = f'<a href="{search_url}" target="ziggogo">{broadcast.title}</a>'
+            
+            # Build poster image from TMDb
+            poster_html = "-"
+            tmdb_data = suggestion.get('tmdb_data')
+            if tmdb_data and tmdb_data.get('poster_path'):
+                poster_path = tmdb_data['poster_path']
+                thumb_url = f"https://image.tmdb.org/t/p/w92{poster_path}"
+                full_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+                title_escaped = broadcast.title.replace('"', '&quot;')
+                poster_html = f'<img src="{thumb_url}" alt="{broadcast.title}" style="height: 60px; border-radius: 4px; cursor: pointer;" onclick="showPoster(\'{full_url}\', \'{title_escaped}\')">'
+            
+            # Combine subtitle and description
+            subtitle_desc = ""
+            if broadcast.subtitle and broadcast.subtitle != "-" and broadcast.description and broadcast.description != "-":
+                subtitle_desc = f"{broadcast.subtitle}<br><small class='text-muted'>{broadcast.description}</small>"
+            elif broadcast.subtitle and broadcast.subtitle != "-":
+                subtitle_desc = broadcast.subtitle
+            elif broadcast.description and broadcast.description != "-":
+                subtitle_desc = f"<small class='text-muted'>{broadcast.description}</small>"
+            else:
+                subtitle_desc = "-"
+            
             year = broadcast.date if broadcast.date else "-"
             # Get non-Film genre
             genre = ""
@@ -384,7 +402,15 @@ def main(mytimer: func.TimerRequest) -> None:
                 actors = ", ".join(actor_links)
             else:
                 actors = "-"
+            
+            # Channel with logo
             channel = broadcast.channel_name if broadcast.channel_name else "-"
+            channel_icon = broadcast.channel_icon if hasattr(broadcast, 'channel_icon') else ""
+            if channel_icon:
+                channel_html = f'<img src="{channel_icon}" alt="{channel}" title="{channel}" style="height: 24px; vertical-align: middle;">'
+            else:
+                channel_html = channel
+            
             bcast_date = broadcast.start_time.strftime("%Y-%m-%d")
             bcast_time = broadcast.start_time.strftime("%H:%M")
             # Build Letterboxd search link
@@ -402,6 +428,8 @@ def main(mytimer: func.TimerRequest) -> None:
             
             html_lines.append('                    <tr>')
             html_lines.append(f'                        <td>{title_html}</td>')
+            html_lines.append(f'                        <td>{poster_html}</td>')
+            html_lines.append(f'                        <td>{subtitle_desc}</td>')
             html_lines.append(f'                        <td>{rating}</td>')
             html_lines.append(f'                        <td>{lb_link}</td>')
             html_lines.append(f'                        <td>{year}</td>')
@@ -409,7 +437,7 @@ def main(mytimer: func.TimerRequest) -> None:
             html_lines.append(f'                        <td>{country}</td>')
             html_lines.append(f'                        <td>{director}</td>')
             html_lines.append(f'                        <td>{actors}</td>')
-            html_lines.append(f'                        <td>{channel}</td>')
+            html_lines.append(f'                        <td>{channel_html}</td>')
             html_lines.append(f'                        <td>{bcast_date}</td>')
             html_lines.append(f'                        <td>{bcast_time}</td>')
             html_lines.append('                    </tr>')
@@ -443,7 +471,30 @@ def main(mytimer: func.TimerRequest) -> None:
         html_lines.append('        </div>')
         
         html_lines.append('    </div>')
+        html_lines.append('    ')
+        html_lines.append('    <!-- Poster Modal -->')
+        html_lines.append('    <div class="modal fade" id="posterModal" tabindex="-1">')
+        html_lines.append('        <div class="modal-dialog modal-dialog-centered">')
+        html_lines.append('            <div class="modal-content bg-dark">')
+        html_lines.append('                <div class="modal-header border-secondary">')
+        html_lines.append('                    <h5 class="modal-title" id="posterModalLabel">Poster</h5>')
+        html_lines.append('                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>')
+        html_lines.append('                </div>')
+        html_lines.append('                <div class="modal-body text-center">')
+        html_lines.append('                    <img id="posterModalImage" src="" class="img-fluid" style="max-height: 80vh;">')
+        html_lines.append('                </div>')
+        html_lines.append('            </div>')
+        html_lines.append('        </div>')
+        html_lines.append('    </div>')
+        html_lines.append('    ')
         html_lines.append('    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>')
+        html_lines.append('    <script>')
+        html_lines.append('        function showPoster(url, title) {')
+        html_lines.append('            document.getElementById("posterModalImage").src = url;')
+        html_lines.append('            document.getElementById("posterModalLabel").textContent = title;')
+        html_lines.append('            new bootstrap.Modal(document.getElementById("posterModal")).show();')
+        html_lines.append('        }')
+        html_lines.append('    </script>')
         html_lines.append('</body>')
         html_lines.append('</html>')
         

@@ -134,6 +134,7 @@ class TMDbClient:
                 "release_date": movie.get("release_date"),
                 "vote_average": movie.get("vote_average"),
                 "vote_count": movie.get("vote_count"),
+                "poster_path": movie.get("poster_path"),
             }
 
         return {
@@ -144,4 +145,5 @@ class TMDbClient:
             "genres": [g.get("name") for g in details.get("genres", [])],
             "vote_average": details.get("vote_average"),
             "vote_count": details.get("vote_count"),
+            "poster_path": details.get("poster_path"),
         }

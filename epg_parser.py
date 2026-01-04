@@ -34,6 +34,7 @@ class EPGBroadcast:
         actors: List[str] = None,
         country: str = "",
         subtitle: str = "",
+        channel_icon: str = "",
     ):
         self.channel = channel
         self.title = title
@@ -49,6 +50,7 @@ class EPGBroadcast:
         self.actors = actors or []
         self.country = country
         self.subtitle = subtitle
+        self.channel_icon = channel_icon
 
     def __repr__(self) -> str:
         return f"EPGBroadcast({self.channel}, {self.title}, {self.start_time})"
@@ -134,16 +136,20 @@ class EPGParser:
             tree = ET.parse(xmltv_path)
             root = tree.getroot()
             
-            # Build channel ID to name mapping
+            # Build channel ID to name and icon mapping
             channel_map = {}
+            icon_map = {}
             for channel in root.findall("channel"):
                 channel_id = channel.get("id", "")
                 display_name = channel.find("display-name")
                 if display_name is not None and display_name.text:
                     channel_map[channel_id] = display_name.text
+                icon_elem = channel.find("icon")
+                if icon_elem is not None:
+                    icon_map[channel_id] = icon_elem.get("src", "")
             
             for programme in root.findall("programme"):
-                broadcast = self._parse_programme(programme, channel_map)
+                broadcast = self._parse_programme(programme, channel_map, icon_map)
                 if broadcast:
                     broadcasts.append(broadcast)
             logger.info(f"Parsed {len(broadcasts)} broadcasts from EPG")
@@ -153,13 +159,14 @@ class EPGParser:
 
         return broadcasts
 
-    def _parse_programme(self, prog_element: ET.Element, channel_map: Dict[str, str]) -> EPGBroadcast | None:
+    def _parse_programme(self, prog_element: ET.Element, channel_map: Dict[str, str], icon_map: Dict[str, str]) -> EPGBroadcast | None:
         """
         Parse a single programme element from XMLTV.
 
         Args:
-            prog_element: XML element representing a programme
+            prog_element: XML element containing programme data
             channel_map: Mapping of channel IDs to display names
+            icon_map: Mapping of channel IDs to icon URLs
 
         Returns:
             EPGBroadcast object or None if parsing fails
@@ -220,8 +227,9 @@ class EPGParser:
             if not all([channel, title, start_time, end_time]):
                 return None
 
-            # Get channel name from mapping
+            # Get channel name and icon from mapping
             channel_name = channel_map.get(channel, channel)
+            channel_icon = icon_map.get(channel, "")
 
             return EPGBroadcast(
                 channel=channel,
@@ -238,6 +246,7 @@ class EPGParser:
                 actors=actors,
                 country=country,
                 subtitle=subtitle,
+                channel_icon=channel_icon,
             )
         except (AttributeError, ValueError) as e:
             logger.warning(f"Failed to parse programme element: {e}")
