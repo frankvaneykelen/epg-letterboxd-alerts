@@ -14,6 +14,15 @@ from dotenv import load_dotenv
 
 import azure.functions as func
 
+# Check for required Azure dependencies
+try:
+    from azure.storage.blob import ContainerClient
+    from azure.identity import DefaultAzureCredential
+except ImportError as e:
+    raise ImportError(
+        "Missing required Azure dependencies. Install with: pip install azure-storage-blob azure-identity"
+    ) from e
+
 # Load environment variables from .env file (for local development)
 load_dotenv()
 

@@ -1,4 +1,6 @@
 azure-functions==1.18.0
+azure-storage-blob>=12.19.0
+azure-identity>=1.15.0
 requests>=2.27.1
 python-dotenv==1.0.0
 pytz>=2022.5

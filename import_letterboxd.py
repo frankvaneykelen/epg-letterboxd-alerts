@@ -1,7 +1,7 @@
 """
 Letterboxd ZIP Import Utility
-Automatically extracts the latest Letterboxd export ZIP from Downloads
-and copies CSV files to the data/ folder.
+Automatically extracts the latest Letterboxd export ZIP from Azure Blob Storage
+or Downloads folder, and copies CSV files to the data/ folder.
 """
 
 import os
@@ -10,8 +10,78 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 import logging
+import tempfile
 
 logger = logging.getLogger(__name__)
+
+# Azure Blob Storage settings
+AZURE_STORAGE_ACCOUNT = "epgletterboxdprod"
+AZURE_CONTAINER_NAME = "downloads"
+AZURE_BLOB_URL = f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/"
+
+
+def download_from_blob_storage() -> Path | None:
+    """
+    Download the latest Letterboxd ZIP from Azure Blob Storage.
+    Uses DefaultAzureCredential for authentication (Managed Identity in Azure, Azure CLI locally).
+    
+    Returns:
+        Path to downloaded ZIP file or None if failed
+    """
+    try:
+        from azure.storage.blob import ContainerClient
+        from azure.identity import DefaultAzureCredential
+        from azure.core.exceptions import ResourceNotFoundError
+        
+        logger.info("Checking Azure Blob Storage for Letterboxd exports...")
+        
+        # Use DefaultAzureCredential - works with Managed Identity in Azure and Azure CLI locally
+        credential = DefaultAzureCredential()
+        
+        # Create container client with authentication
+        container_client = ContainerClient(
+            account_url=f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net",
+            container_name=AZURE_CONTAINER_NAME,
+            credential=credential
+        )
+        
+        # List all letterboxd ZIP files
+        letterboxd_blobs = []
+        for blob in container_client.list_blobs(name_starts_with="letterboxd-"):
+            if blob.name.endswith('.zip'):
+                letterboxd_blobs.append(blob)
+        
+        if not letterboxd_blobs:
+            logger.info("No Letterboxd ZIPs found in Azure Blob Storage")
+            return None
+        
+        # Find the latest blob by last_modified time
+        latest_blob = max(letterboxd_blobs, key=lambda b: b.last_modified)
+        logger.info(f"Found latest blob: {latest_blob.name} (modified: {latest_blob.last_modified})")
+        
+        # Download to temp file
+        temp_dir = Path(tempfile.gettempdir())
+        download_path = temp_dir / latest_blob.name
+        
+        logger.info(f"Downloading {latest_blob.name} from blob storage...")
+        blob_client = container_client.get_blob_client(latest_blob.name)
+        
+        with open(download_path, "wb") as f:
+            download_stream = blob_client.download_blob()
+            f.write(download_stream.readall())
+        
+        logger.info(f"Downloaded to {download_path}")
+        return download_path
+        
+    except ImportError:
+        logger.warning("azure-storage-blob or azure-identity not installed, skipping blob storage check")
+        return None
+    except ResourceNotFoundError:
+        logger.warning("Azure Blob Storage container not found or not accessible")
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to download from blob storage: {e}")
+        return None
 
 
 def find_latest_letterboxd_zip(downloads_folder: str = None) -> Path | None:
@@ -115,10 +185,10 @@ def extract_letterboxd_csvs(zip_path: Path, output_folder: str = "data") -> bool
 
 def import_latest_letterboxd_export(downloads_folder: str = None, output_folder: str = "data") -> bool:
     """
-    Find and extract the latest Letterboxd export from Downloads.
+    Find and extract the latest Letterboxd export from Azure Blob Storage or Downloads.
 
     Args:
-        downloads_folder: Path to Downloads folder (optional)
+        downloads_folder: Path to Downloads folder (optional, used as fallback)
         output_folder: Destination folder for CSV files (default: 'data')
 
     Returns:
@@ -126,13 +196,28 @@ def import_latest_letterboxd_export(downloads_folder: str = None, output_folder:
     """
     logger.info("Searching for latest Letterboxd export...")
     
-    # Find the latest ZIP
-    zip_path = find_latest_letterboxd_zip(downloads_folder)
+    # Try Azure Blob Storage first
+    zip_path = download_from_blob_storage()
+    
+    # Fallback to local downloads folder
     if not zip_path:
+        logger.info("Falling back to local downloads folder...")
+        zip_path = find_latest_letterboxd_zip(downloads_folder)
+    
+    if not zip_path:
+        logger.error("No Letterboxd ZIP found in blob storage or downloads folder")
         return False
 
     # Extract CSVs
     success = extract_letterboxd_csvs(zip_path, output_folder)
+    
+    # Clean up temp file if downloaded from blob storage
+    if zip_path.parent == Path(tempfile.gettempdir()):
+        try:
+            zip_path.unlink()
+            logger.info(f"Cleaned up temporary file: {zip_path}")
+        except Exception as e:
+            logger.warning(f"Failed to clean up temp file: {e}")
     
     if success:
         logger.info("Letterboxd data import completed successfully!")
@@ -159,4 +244,6 @@ if __name__ == "__main__":
         print("  - watchlist.csv")
     else:
         print("\n✗ Failed to import Letterboxd data")
-        print("  Make sure you have a letterboxd-*.zip file in your Downloads folder")
+        print("  Make sure you have:")
+        print("  1. A letterboxd-*.zip file in Azure Blob Storage (https://epgletterboxdprod.blob.core.windows.net/downloads/), OR")
+        print("  2. A letterboxd-*.zip file in your downloads/ folder")

@@ -94,7 +94,25 @@ Edit `config.json` for non-secret settings:
 - Letterboxd CSV paths (if using Letterboxd)
 - TVHeadend base URL and enable/disable
 
-### 5. Local Testing
+### 5. Azure Blob Storage Access (Local Development)
+
+To test Azure Blob Storage integration locally, grant your Azure CLI user the Storage Blob Data Reader role:
+
+```powershell
+az role assignment create `
+  --role "Storage Blob Data Reader" `
+  --assignee $(az ad signed-in-user show --query id -o tsv) `
+  --scope /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Storage/storageAccounts/<storage-account-name>
+```
+
+Replace:
+- `<subscription-id>`: Your Azure subscription ID
+- `<resource-group>`: Resource group name (e.g., `rg-epg-letterboxd-prod`)
+- `<storage-account-name>`: Storage account name (e.g., `epgletterboxdprod`)
+
+This allows the script to download Letterboxd exports from Azure Blob Storage when running locally. Without this role, it will fall back to the local `downloads/` folder.
+
+### 6. Local Testing
 
 **Ensure virtual environment is activated** (you should see `(.venv)` in your prompt):
 
@@ -226,31 +244,54 @@ NET5
 
 The script uses the same TMDb API key and SQLite cache as the main function.
 
-## Deployment to Azure Functions
+## Deployment to Azure
 
-### Prerequisites
+### Infrastructure Deployment
 
-- Azure account with Azure Functions resource
+Deploy the complete Azure infrastructure using Bicep:
+
+```bash
+# Create resource group
+az group create --name rg-epg-letterboxd-prod --location westeurope
+
+# Deploy infrastructure
+az deployment group create \
+  --resource-group rg-epg-letterboxd-prod \
+  --template-file infra/main.bicep \
+  --parameters tmdbApiKey=YOUR_TMDB_API_KEY
+```
+
+This creates:
+- Function App (Python 3.11, Consumption Plan)
+- Storage Account with Managed Identity access
+- Application Insights
+- Blob container for Letterboxd exports
+
+See [infra/README.md](infra/README.md) for detailed deployment instructions.
+
+### Code Deployment via GitHub Actions
+
+#### Prerequisites
+
+- Azure Function App deployed (using Bicep above)
 - GitHub repository secrets configured
 
-### GitHub Secrets Required
+#### GitHub Secrets Required
 
 Configure these in GitHub Settings → Secrets and variables → Actions:
 
-- `AZURE_FUNCTION_APP_NAME`: Your Azure Function App name
+- `AZURE_FUNCTION_APP_NAME`: Your Azure Function App name (from Bicep deployment)
 - `AZURE_FUNCTION_PUBLISH_PROFILE`: Download from Azure Portal
 
-### Application Settings in Azure
+#### Application Settings (configured via Bicep)
 
-Add these environment variables in Azure Portal → Function App → Configuration:
+The following environment variables are set automatically by the Bicep deployment:
 
-- `TMDB_API_KEY`
-- `TVHEADEND_USERNAME`
-- `TVHEADEND_PASSWORD`
+- `TMDB_API_KEY`: TMDb API key (from deployment parameters)
+- Application Insights connection strings
+- Storage account connection strings
 
-**Note:** Letterboxd CSV files should be uploaded to Azure as part of deployment (stored in `data/` folder) or stored in Azure Blob Storage and referenced in config.
-
-### Deploy
+#### Deploy
 
 Push to `main` branch to trigger automatic deployment via GitHub Actions:
 
