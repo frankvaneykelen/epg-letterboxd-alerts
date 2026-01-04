@@ -107,7 +107,6 @@ class EPGParser:
                 
                 # Download cache from blob storage if it exists (persists across cold starts)
                 try:
-                    from blob_config_loader import download_config_file
                     cache_filename = Path(self.database_file).name
                     downloaded_cache = download_config_file(cache_filename, database_file)
                     if Path(downloaded_cache).exists():

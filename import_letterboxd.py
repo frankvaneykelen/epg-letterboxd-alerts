@@ -20,6 +20,22 @@ AZURE_CONTAINER_NAME = "downloads"
 AZURE_BLOB_URL = f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/"
 
 
+# Detect if running in Azure
+def is_azure_environment():
+    """Check if running in Azure Functions environment."""
+    return (
+        os.getenv('FUNCTIONS_WORKER_RUNTIME') is not None or
+        os.getenv('WEBSITE_INSTANCE_ID') is not None or
+        os.getenv('WEBSITE_SITE_NAME') is not None
+    )
+
+def get_output_folder():
+    """Get appropriate output folder based on environment."""
+    if is_azure_environment():
+        return "/tmp"
+    return "data"
+
+
 def download_from_blob_storage() -> Path | None:
     """
     Download the latest Letterboxd ZIP from Azure Blob Storage.
