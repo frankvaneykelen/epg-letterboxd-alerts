@@ -9,8 +9,9 @@ on:
       - main
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 
@@ -22,41 +23,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run tests
-        run: |
-          # Add test commands here when tests are created
-          echo "Tests not yet implemented"
-
-      - name: Create package
-        run: |
-          mkdir -p dist
-          zip -r dist/epg-letterboxd-alerts.zip . -x ".git*" "dist/*" ".venv/*" "*.pyc" "__pycache__/*"
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: function-package
-          path: dist/epg-letterboxd-alerts.zip
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: function-package
+          pip install -r requirements.txt --target=".python_packages/lib/site-packages"
 
       - name: Deploy to Azure Functions
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ secrets.AZURE_FUNCTION_APP_NAME }}
-          package: epg-letterboxd-alerts.zip
+          package: '.'
           publish-profile: ${{ secrets.AZURE_FUNCTION_PUBLISH_PROFILE }}
           scm-do-build-during-deployment: true
           enable-oryx-build: true
