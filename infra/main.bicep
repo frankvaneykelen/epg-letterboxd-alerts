@@ -19,15 +19,16 @@ param storageSku string = 'Standard_LRS'
 
 // Variables
 var resourceSuffix = '${projectName}-${environment}'
-var storageAccountName = replace('${projectName}${environment}', '-', '') // Storage accounts can't have hyphens
+var dataStorageAccountName = replace('${projectName}${environment}', '-', '') // Storage accounts can't have hyphens
+var funcStorageAccountName = replace('${projectName}${environment}func', '-', '') // Separate storage for Function App
 var functionAppName = '${resourceSuffix}-func'
 var appServicePlanName = '${resourceSuffix}-plan'
 var appInsightsName = '${resourceSuffix}-ai'
 var containerName = 'downloads'
 
-// Storage Account for Function App and Letterboxd ZIPs
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-  name: storageAccountName
+// Storage Account for Function App infrastructure (no firewall - needed for deployments)
+resource funcStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: funcStorageAccountName
   location: location
   sku: {
     name: storageSku
@@ -38,9 +39,24 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     allowBlobPublicAccess: false
     supportsHttpsTrafficOnly: true
     accessTier: 'Hot'
-    // Network rules for IP restrictions - TEMPORARILY DISABLED FOR DEPLOYMENT
-    // Uncomment after first successful deployment
-    /*
+    // No firewall - allows GitHub Actions to deploy
+  }
+}
+
+// Storage Account for data (Letterboxd ZIPs, static website) with IP restrictions
+resource dataStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: dataStorageAccountName
+  location: location
+  sku: {
+    name: storageSku
+  }
+  kind: 'StorageV2'
+  properties: {
+    minimumTlsVersion: 'TLS1_2'
+    allowBlobPublicAccess: false
+    supportsHttpsTrafficOnly: true
+    accessTier: 'Hot'
+    // Network rules for IP restrictions on data access
     networkAcls: {
       bypass: 'AzureServices'
       defaultAction: 'Deny'
@@ -51,16 +67,15 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
         // { value: '10.0.0.0/24' }
       ]
     }
-    */
   }
 }
 
 // Note: Static website configuration requires Azure CLI or Portal
-// Run after deployment: az storage blob service-properties update --account-name <name> --static-website --index-document index.html
+// Run after deployment: az storage blob service-properties update --account-name epgletterboxdprod --static-website --index-document index.html
 
-// Blob Service
+// Blob Service for data storage account
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
-  parent: storageAccount
+  parent: dataStorageAccount
   name: 'default'
 }
 
@@ -124,11 +139,11 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       appSettings: [
         {
           name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTSHARE'
@@ -167,8 +182,8 @@ resource blobContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@
 }
 
 resource functionAppBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  scope: storageAccount
-  name: guid(storageAccount.id, functionApp.id, blobContributorRoleDefinition.id)
+  scope: dataStorageAccount
+  name: guid(dataStorageAccount.id, functionApp.id, blobContributorRoleDefinition.id)
   properties: {
     roleDefinitionId: blobContributorRoleDefinition.id
     principalId: functionApp.identity.principalId
@@ -178,7 +193,9 @@ resource functionAppBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-
 
 // Outputs
 output functionAppName string = functionApp.name
-output storageAccountName string = storageAccount.name
+output dataStorageAccountName string = dataStorageAccount.name
+output funcStorageAccountName string = funcStorageAccount.name
 output containerName string = containerName
 output functionAppPrincipalId string = functionApp.identity.principalId
 output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
+output staticWebsiteUrl string = 'https://${dataStorageAccount.name}.z6.web.core.windows.net/'
