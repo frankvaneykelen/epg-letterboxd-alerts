@@ -93,7 +93,12 @@ class EPGParser:
         try:
             # In Azure Functions, use /tmp for writable storage
             import os
-            if os.environ.get('WEBSITE_INSTANCE_ID'):  # Running in Azure
+            # Check multiple Azure environment variables for reliability
+            is_azure = (os.environ.get('WEBSITE_INSTANCE_ID') or 
+                       os.environ.get('WEBSITE_SITE_NAME') or 
+                       os.environ.get('FUNCTIONS_WORKER_RUNTIME'))
+            
+            if is_azure:  # Running in Azure
                 # Use /tmp for database (only writable location in Azure Functions)
                 database_file = f"/tmp/{Path(self.database_file).name}"
                 xmltv_file = f"/tmp/{Path(self.xmltv_file).name}"
