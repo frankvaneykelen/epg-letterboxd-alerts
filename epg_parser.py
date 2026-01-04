@@ -91,10 +91,21 @@ class EPGParser:
         channel_file_path = download_config_file(blob_filename, self.channel_file)
         
         try:
+            # In Azure Functions, use /tmp for writable storage
+            import os
+            if os.environ.get('WEBSITE_INSTANCE_ID'):  # Running in Azure
+                # Use /tmp for database (only writable location in Azure Functions)
+                database_file = f"/tmp/{Path(self.database_file).name}"
+                xmltv_file = f"/tmp/{Path(self.xmltv_file).name}"
+            else:
+                # Local development - use configured paths
+                database_file = self.database_file
+                xmltv_file = self.xmltv_file
+            
             # Setup file-based IO
             tv_system_io = ChannelFileIo(
                 channel_list_filename=channel_file_path,
-                xmltv_filename=self.xmltv_file
+                xmltv_filename=xmltv_file
             )
 
             # Create grabber instance
@@ -102,7 +113,7 @@ class EPGParser:
                 tv_system_io=tv_system_io,
                 scan_days=self.scan_days,
                 configuration_file=self.configuration,
-                database_file=self.database_file,
+                database_file=database_file,
                 timezone=None  # Use config default
             )
 
@@ -110,7 +121,7 @@ class EPGParser:
             grabber.grab(generate_only=False)
             
             # Return path to XMLTV file
-            return self.xmltv_file
+            return xmltv_file
 
         except GrabException as e:
             logger.error(f"Failed to fetch EPG: {e}")
