@@ -1,11 +1,11 @@
 """
-Do-Not-Watchlist Table Storage Loader Module
-Loads do-not-watch films and series from Azure Table Storage.
+Do-Not-Watch Series Table Storage Loader Module
+Loads do-not-watch series from Azure Table Storage (title-only, no year).
 """
 
 import logging
 import os
-from typing import Set, Optional
+from typing import Set
 from azure.data.tables import TableServiceClient
 from azure.identity import DefaultAzureCredential
 
@@ -21,25 +21,25 @@ def is_azure_environment():
     )
 
 
-class DoNotWatchListLoader:
-    """Loads do-not-watch films from Azure Table Storage."""
+class DoNotWatchSeriesLoader:
+    """Loads do-not-watch series from Azure Table Storage."""
 
-    def __init__(self, storage_account_name: str = "epgletterboxdprod", table_name: str = "DoNotWatchListFilms"):
+    def __init__(self, storage_account_name: str = "epgletterboxdprod", table_name: str = "DoNotWatchListSeries"):
         """
         Initialize Table Storage loader.
 
         Args:
             storage_account_name: Azure Storage account name
-            table_name: Table name (default: DoNotWatchListFilms)
+            table_name: Table name (default: DoNotWatchListSeries)
         """
         self.storage_account_name = storage_account_name
         self.table_name = table_name
-        self._do_not_watchlist_films: Set[tuple] = set()
+        self._do_not_watch_series: Set[str] = set()
         self._loaded = False
 
     def load_data(self) -> bool:
         """
-        Load do-not-watchlist from Azure Table Storage.
+        Load do-not-watch series from Azure Table Storage.
 
         Returns:
             True if data was loaded successfully, False otherwise
@@ -61,51 +61,46 @@ class DoNotWatchListLoader:
             # Query all entities (single partition, so this is efficient)
             entities = table_client.query_entities("PartitionKey eq 'DoNotWatch'")
             
-            # Load into memory as (title, year) tuples
+            # Load into memory as title set (case-insensitive)
             count = 0
             for entity in entities:
-                name = entity.get('Name', '').strip()
-                year = entity.get('Year')
+                title = entity.get('Title', '').strip()
                 
-                if name and year:
-                    self._do_not_watchlist_films.add((name, int(year)))
+                if title:
+                    # Store in lowercase for case-insensitive matching
+                    self._do_not_watch_series.add(title.lower())
                     count += 1
             
             self._loaded = True
-            logger.info(f"Loaded {count} films from do-not-watchlist table")
+            logger.info(f"Loaded {count} series from do-not-watch table")
             return True
 
         except Exception as e:
-            logger.error(f"Error loading do-not-watchlist from Table Storage: {e}")
+            logger.error(f"Error loading do-not-watch series from Table Storage: {e}")
             return False
 
-    def is_on_do_not_watchlist(self, tmdb_title: str, tmdb_year: int) -> bool:
+    def is_on_do_not_watch_list(self, title: str) -> bool:
         """
-        Check if a film is on the do-not-watchlist by title and year (±1 year tolerance).
+        Check if a series is on the do-not-watch list by title (case-insensitive).
 
         Args:
-            tmdb_title: TMDb movie title
-            tmdb_year: Release year from TMDb
+            title: Series title
 
         Returns:
-            True if on do-not-watchlist, False otherwise
+            True if on do-not-watch list, False otherwise
         """
         if not self._loaded:
             self.load_data()
         
-        # Check with ±1 year tolerance
-        for year_offset in [-1, 0, 1]:
-            if (tmdb_title, tmdb_year + year_offset) in self._do_not_watchlist_films:
-                return True
-        return False
+        return title.lower() in self._do_not_watch_series
 
     def get_count(self) -> int:
         """
-        Get count of films in do-not-watchlist.
+        Get count of series in do-not-watch list.
 
         Returns:
-            Number of films
+            Number of series
         """
         if not self._loaded:
             self.load_data()
-        return len(self._do_not_watchlist_films)
+        return len(self._do_not_watch_series)

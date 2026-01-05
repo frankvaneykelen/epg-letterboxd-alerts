@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 import fetch_epg
 from blob_config_loader import download_config_file
 from blob_html_writer import upload_html_to_blob
+from do_not_watch_series_loader import DoNotWatchSeriesLoader
 
 # Load environment variables from .env file
 load_dotenv()
@@ -114,6 +115,10 @@ def list_non_films():
     """Parse ziggogo.xml and list all programmes without Film category."""
     
     logger.info("Starting series EPG processing...")
+    
+    # Load do-not-watch series list
+    do_not_watch_loader = DoNotWatchSeriesLoader()
+    do_not_watch_loader.load_data()
     
     # Determine paths based on environment
     is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
@@ -216,6 +221,11 @@ def list_non_films():
         # Get title
         title_elem = programme.find('title')
         title = title_elem.text if title_elem is not None and title_elem.text else "-"
+        
+        # Check do-not-watch list first
+        if do_not_watch_loader.is_on_do_not_watch_list(title):
+            logger.info(f"  Skipping '{title}' - on do-not-watch list")
+            continue
         
         print(f"\r[{idx:02d}/{total_count}] {title[:50]:<50}", end='', flush=True)
         

@@ -135,6 +135,12 @@ resource doNotWatchListTable 'Microsoft.Storage/storageAccounts/tableServices/ta
   name: 'DoNotWatchListFilms'
 }
 
+// Table for do-not-watch series
+resource doNotWatchSeriesTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-01-01' = {
+  parent: tableService
+  name: 'DoNotWatchListSeries'
+}
+
 // Application Insights
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: appInsightsName
