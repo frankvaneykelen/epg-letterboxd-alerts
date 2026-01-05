@@ -325,8 +325,8 @@ def list_non_films():
             'start_time': start_time
         })
     
-    # Sort by title
-    programmes.sort(key=lambda x: x['title'].lower())
+    # Sort by start_time (date ascending)
+    programmes.sort(key=lambda x: x['start_time'] if x['start_time'] else datetime.max)
     non_film_count = len(programmes)
     
     print()  # New line after progress
