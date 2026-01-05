@@ -25,7 +25,8 @@ cd infra
 az deployment group create `
   --resource-group rg-epg-letterboxd-prod `
   --template-file main.bicep `
-  --parameters main.parameters.json
+  --parameters main.parameters.json `
+  --parameters tmdbApiKey=YOUR_TMDB_API_KEY
 ```
 
 ## Enable Static Website (one-time setup)

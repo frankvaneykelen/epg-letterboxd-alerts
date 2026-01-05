@@ -36,7 +36,8 @@ Edit `main.parameters.json` with your TMDb API key, then deploy:
 az deployment group create \
   --resource-group rg-epg-letterboxd-prod \
   --template-file infra/main.bicep \
-  --parameters infra/main.parameters.json
+  --parameters infra/main.parameters.json \
+  --parameters tmdbApiKey=YOUR_TMDB_API_KEY
 ```
 
 **Option B: Inline parameters**
@@ -95,10 +96,7 @@ Or set up GitHub Actions with these secrets:
 ### Update TMDb API Key
 
 ```bash
-az functionapp config appsettings set \
-  --resource-group rg-epg-letterboxd-prod \
-  --name epg-letterboxd-prod-func \
-  --settings "TMDB_API_KEY=your_new_key"
+az functionapp config appsettings set --resource-group rg-epg-letterboxd-prod --name epg-letterboxd-prod-func --settings "TMDB_API_KEY=your_new_key"
 ```
 
 ### View Logs

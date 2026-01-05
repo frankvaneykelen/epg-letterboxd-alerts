@@ -258,6 +258,7 @@ az group create --name rg-epg-letterboxd-prod --location westeurope
 az deployment group create \
   --resource-group rg-epg-letterboxd-prod \
   --template-file infra/main.bicep \
+  --parameters infra/main.parameters.json \
   --parameters tmdbApiKey=YOUR_TMDB_API_KEY
 ```
 
