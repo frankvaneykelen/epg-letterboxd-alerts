@@ -180,6 +180,7 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'Python|3.11'
+      webJobsEnabled: true  // Required for Azure Functions to work
       appSettings: [
         {
           name: 'AzureWebJobsStorage'
