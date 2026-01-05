@@ -213,6 +213,14 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           name: 'TMDB_API_KEY'
           value: tmdbApiKey
         }
+        {
+          name: 'STORAGE_ACCOUNT_NAME'
+          value: dataStorageAccount.name
+        }
+        {
+          name: 'STORAGE_CONTAINER_NAME'
+          value: containerName
+        }
       ]
     }
   }
