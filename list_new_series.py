@@ -326,7 +326,8 @@ def list_non_films():
         })
     
     # Sort by start_time (date ascending)
-    programmes.sort(key=lambda x: x['start_time'] or datetime.max)
+    # Use a far-future date for items without start_time to sort them last
+    programmes.sort(key=lambda x: x['start_time'] or datetime(9999, 12, 31))
     non_film_count = len(programmes)
     
     print()  # New line after progress
