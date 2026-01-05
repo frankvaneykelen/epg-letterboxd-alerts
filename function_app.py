@@ -4,7 +4,7 @@ This file is used when deploying to Azure Functions.
 """
 
 import azure.functions as func
-from __init__ import main
+from epg_letterboxd_main import main
 from list_new_series import list_non_films
 from pathlib import Path
 from blob_html_writer import download_html_from_blob

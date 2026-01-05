@@ -41,6 +41,11 @@ resource funcStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     accessTier: 'Hot'
     // No firewall - allows GitHub Actions to deploy
   }
+  tags: {
+    Environment: environment
+    Project: projectName
+    Purpose: 'Function App Infrastructure'
+  }
 }
 
 // Storage Account for data (Letterboxd ZIPs, static website) with IP restrictions
@@ -57,8 +62,10 @@ resource dataStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     supportsHttpsTrafficOnly: true
     accessTier: 'Hot'
     // Network rules for IP restrictions on data access
+    // NOTE: Consumption Function Apps don't have static outbound IPs, so they rely on 'AzureServices' bypass
+    // Function App uses Managed Identity (Storage Blob Data Contributor role) to access storage
     networkAcls: {
-      bypass: 'AzureServices'
+      bypass: 'AzureServices'  // Allows Function App to access despite IP restrictions
       defaultAction: 'Deny'
       ipRules: [
         { value: '213.73.141.240' } // K202
@@ -67,6 +74,11 @@ resource dataStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
         // { value: '10.0.0.0/24' }
       ]
     }
+  }
+  tags: {
+    Environment: environment
+    Project: projectName
+    Purpose: 'Data Storage (Letterboxd, HTML)'
   }
 }
 
@@ -150,6 +162,10 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
     Application_Type: 'web'
     Request_Source: 'rest'
   }
+  tags: {
+    Environment: environment
+    Project: projectName
+  }
 }
 
 // App Service Plan (Consumption)
@@ -163,6 +179,10 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
   }
   properties: {
     reserved: true
+  }
+  tags: {
+    Environment: environment
+    Project: projectName
   }
 }
 
@@ -183,11 +203,11 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
       appSettings: [
         {
           name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTSHARE'
@@ -221,8 +241,25 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           name: 'STORAGE_CONTAINER_NAME'
           value: containerName
         }
+        {
+          name: 'AzureWebJobsFeatureFlags'
+          value: 'EnableWorkerIndexing'
+        }
+        {
+          name: 'PYTHON_ISOLATE_WORKER_DEPENDENCIES'
+          value: '1'
+        }
+        {
+          name: 'WEBSITE_RUN_FROM_PACKAGE'
+          value: '1'
+        }
       ]
     }
+  }
+  tags: {
+    Environment: environment
+    Project: projectName
+    ManagedBy: 'Bicep'
   }
 }
 
