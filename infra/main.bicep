@@ -123,6 +123,18 @@ resource wwwrootContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
   }
 }
 
+// Table Service for data storage account
+resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-01-01' = {
+  parent: dataStorageAccount
+  name: 'default'
+}
+
+// Table for do-not-watchlist films
+resource doNotWatchListTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-01-01' = {
+  parent: tableService
+  name: 'DoNotWatchListFilms'
+}
+
 // Application Insights
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: appInsightsName
@@ -212,6 +224,23 @@ resource functionAppBlobAccess 'Microsoft.Authorization/roleAssignments@2022-04-
   name: guid(dataStorageAccount.id, functionApp.id, blobContributorRoleDefinition.id)
   properties: {
     roleDefinitionId: blobContributorRoleDefinition.id
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Role assignment: Storage Table Data Contributor for Function App's Managed Identity
+resource tableContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: subscription()
+  // Storage Table Data Contributor role
+  name: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
+}
+
+resource functionAppTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: dataStorageAccount
+  name: guid(dataStorageAccount.id, functionApp.id, tableContributorRoleDefinition.id)
+  properties: {
+    roleDefinitionId: tableContributorRoleDefinition.id
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
   }

@@ -8,6 +8,7 @@ import os
 import csv
 from typing import Set, Dict, Any, Optional
 from pathlib import Path
+from do_not_watchlist_loader import DoNotWatchListLoader
 
 logger = logging.getLogger(__name__)
 
@@ -36,26 +37,25 @@ class LetterboxdCSVLoader:
         watchlist_csv = self.config.get("watchlist_csv", "data/watchlist.csv")
         diary_csv = self.config.get("diary_csv", "data/diary.csv")
         watched_csv = self.config.get("watched_csv", "data/watched.csv")
-        do_not_watchlist_csv = self.config.get("do_not_watchlist_csv", "data/do-not-watchlist.csv")
         
         # In Azure, replace data/ prefix with /tmp/ (extracted ZIP location)
         if is_azure_environment():
             self.watchlist_path = watchlist_csv.replace("data/", "/tmp/") if watchlist_csv else None
             self.diary_path = diary_csv.replace("data/", "/tmp/") if diary_csv else None
             self.watched_path = watched_csv.replace("data/", "/tmp/")
-            self.do_not_watchlist_path = do_not_watchlist_csv.replace("data/", "/tmp/")
             logger.info(f"Running in Azure - using /tmp for CSV files")
         else:
             self.watchlist_path = watchlist_csv
             self.diary_path = diary_csv
             self.watched_path = watched_csv
-            self.do_not_watchlist_path = do_not_watchlist_csv
         
         # Cache loaded data - store by (title, year) tuple
         self._watchlist_films: Set[tuple] = set()
         self._seen_films: Set[tuple] = set()
-        self._do_not_watchlist_films: Set[tuple] = set()
         self._loaded = False
+        
+        # Initialize do-not-watchlist loader (uses Table Storage)
+        self._do_not_watchlist_loader = DoNotWatchListLoader()
 
     def load_data(self) -> bool:
         """
@@ -70,19 +70,8 @@ class LetterboxdCSVLoader:
         success = True
 
         # Load do-not-watchlist (always try to load, even if no path configured)
-        # Note: do-not-watchlist still downloads from blob storage (user-maintained file)
-        # but watchlist/diary come from extracted ZIP
-        if self.do_not_watchlist_path:
-            from blob_config_loader import download_config_file
-            do_not_watchlist_path = download_config_file("do-not-watchlist.csv", self.do_not_watchlist_path)
-            if Path(do_not_watchlist_path).exists():
-                if self._load_do_not_watchlist(do_not_watchlist_path):
-                    logger.info(f"Loaded {len(self._do_not_watchlist_films)} films from do-not-watchlist CSV")
-                else:
-                    logger.warning("Failed to load do-not-watchlist CSV")
-            else:
-                logger.debug("No do-not-watchlist CSV found (optional)")
-
+        # Note: do-not-watchlistfrom Table Storage
+        self._do_not_watchlist_loader.load_data(
         # Load watchlist (from extracted ZIP in /tmp/ or data/)
         if self.watchlist_path:
             if Path(self.watchlist_path).exists():
@@ -327,14 +316,7 @@ class LetterboxdCSVLoader:
         Returns:
             True if on do-not-watchlist, False otherwise
         """
-        if not self._loaded:
-            self.load_data()
-        
-        # Check with ±1 year tolerance
-        for year_offset in [-1, 0, 1]:
-            if (tmdb_title, tmdb_year + year_offset) in self._do_not_watchlist_films:
-                return True
-        return False
+        return self._do_not_watchlist_loader.is_on_do_not_watchlist(tmdb_title, tmdb_year)
 
     def get_stats(self) -> Dict[str, int]:
         """
@@ -349,5 +331,5 @@ class LetterboxdCSVLoader:
         return {
             "watchlist_count": len(self._watchlist_films),
             "seen_count": len(self._seen_films),
-            "do_not_watchlist_count": len(self._do_not_watchlist_films),
+            "do_not_watchlist_count": self._do_not_watchlist_loader.get_count(),
         }
