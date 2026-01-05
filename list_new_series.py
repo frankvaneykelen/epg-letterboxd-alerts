@@ -210,7 +210,7 @@ def list_non_films():
             continue
         
         # Skip unwanted categories
-        if any(cat in categories for cat in ["Kinderen", "Reality", "Spelshow", "Talkshow", "Home & Garden", "Sport", "Paardensport"]):
+        if any(cat in categories for cat in ["Kinderen", "Reality", "Spelshow", "Talkshow", "Home & Garden", "Sport", "Paardensport", "Bouwen en verbouwen"]):
             continue
         
         # Get title
