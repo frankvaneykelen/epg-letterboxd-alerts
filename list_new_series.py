@@ -261,12 +261,12 @@ def list_non_films():
         date_elem = programme.find('date')
         date = date_elem.text if date_elem is not None and date_elem.text else "-"
         
-        # Only include the recent years (last 7 years)
+        # Only include the last 2 years
         current_year = datetime.now().year
         if date != "-":
             try:
                 year = int(date)
-                if year not in range(current_year - 7, current_year + 1):
+                if year not in range(current_year - 1, current_year + 1): # that is for 2026: 2025, 2026
                     continue
             except ValueError:
                 continue  # Skip if date is not a valid year
