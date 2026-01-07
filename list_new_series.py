@@ -159,11 +159,16 @@ def list_non_films():
     # Load config for TMDb API key
     config_path = Path("config.json")
     api_key = None
+    allowed_countries = None
     if config_path.exists():
         import json
         with open(config_path) as f:
             config = json.load(f)
             api_key = os.getenv("TMDB_API_KEY") or config.get("tmdb", {}).get("api_key")
+            # Load country filter from config
+            allowed_countries = config.get("filters", {}).get("countries", None)
+            if allowed_countries:
+                logger.info(f"Country filter enabled: {allowed_countries}")
     else:
         api_key = os.getenv("TMDB_API_KEY")
     
@@ -298,6 +303,12 @@ def list_non_films():
         # Get country
         country_elem = programme.find('country')
         country = country_elem.text if country_elem is not None and country_elem.text else "-"
+        
+        # Filter by allowed countries (if configured)
+        if allowed_countries and country != "-":
+            if country not in allowed_countries:
+                logger.debug(f"  Skipping '{title}' - country '{country}' not in allowed list {allowed_countries}")
+                continue
         
         # Get start time
         start_str = programme.get('start', '')

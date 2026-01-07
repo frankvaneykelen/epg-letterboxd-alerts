@@ -14,33 +14,6 @@ from azure.identity import DefaultAzureCredential
 logger = logging.getLogger(__name__)
 
 
-def normalize_title(title: str) -> str:
-    """
-    Normalize a title for comparison by converting to lowercase and removing trailing punctuation.
-    
-    This ensures that titles like "The Art of Architecture?" match "The Art of Architecture"
-    in the do-not-watch list.
-    
-    Args:
-        title: The title to normalize
-        
-    Returns:
-        Normalized title (lowercase, trailing punctuation removed)
-    """
-    if not title:
-        return ""
-    
-    # Convert to lowercase
-    normalized = title.lower().strip()
-    
-    # Remove trailing punctuation (?, !, :, ., etc.)
-    # Keep internal punctuation but strip trailing
-    while normalized and normalized[-1] in '?!:.,;…':
-        normalized = normalized[:-1].strip()
-    
-    return normalized
-
-
 def is_azure_environment():
     """Check if running in Azure Functions environment."""
     return (
@@ -111,10 +84,9 @@ class DoNotWatchSeriesLoader:
             for entity in entities:
                 title = entity.get('RowKey', '').strip()
                 if title:
-                    normalized = normalize_title(title)
-                    self._do_not_watch_series.add(normalized)
+                    self._do_not_watch_series.add(title.lower())
                     count += 1
-                    logger.debug(f"  Loaded series: {title} (normalized: {normalized})")
+                    logger.debug(f"  Loaded series: {title}")
                 else:
                     skipped += 1
                     logger.warning(f"  Skipped entity with empty RowKey: {entity}")
@@ -142,8 +114,7 @@ class DoNotWatchSeriesLoader:
                 for row in reader:
                     title = row.get('Title', '').strip()
                     if title:
-                        normalized = normalize_title(title)
-                        self._do_not_watch_series.add(normalized)
+                        self._do_not_watch_series.add(title.lower())
                         count += 1
 
             logger.info(f"Loaded {count} series from do-not-watch CSV")
@@ -155,10 +126,7 @@ class DoNotWatchSeriesLoader:
 
     def is_on_do_not_watch_list(self, title: str) -> bool:
         """
-        Check if a series is on the do-not-watch list by title.
-        
-        Performs normalized comparison (case-insensitive, trailing punctuation removed)
-        so that "The Art of Architecture?" matches "The Art of Architecture".
+        Check if a series is on the do-not-watch list by title (case-insensitive).
 
         Args:
             title: Series title
@@ -169,8 +137,7 @@ class DoNotWatchSeriesLoader:
         if not self._loaded:
             self.load_data()
         
-        normalized = normalize_title(title)
-        return normalized in self._do_not_watch_series
+        return title.lower() in self._do_not_watch_series
 
     def get_count(self) -> int:
         """
