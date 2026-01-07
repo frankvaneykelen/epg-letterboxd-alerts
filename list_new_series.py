@@ -19,6 +19,7 @@ import fetch_epg
 from blob_config_loader import download_config_file
 from blob_html_writer import upload_html_to_blob
 from do_not_watch_series_loader import DoNotWatchSeriesLoader
+from skip_categories_loader import SkipCategoriesLoader
 
 # Load environment variables from .env file (only for local development)
 try:
@@ -125,6 +126,13 @@ def list_non_films():
     do_not_watch_loader.load_data()
     logger.info(f"Loaded {do_not_watch_loader.get_count()} series to do-not-watch list")
     
+    # Load skip categories
+    skip_categories_loader = SkipCategoriesLoader(
+        storage_account_name="ziggoepgletterboxd"
+    )
+    skip_categories_loader.load_data()
+    logger.info(f"Loaded {len(skip_categories_loader.get_categories())} skip categories")
+    
     # Determine paths based on environment
     is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
                os.environ.get('WEBSITE_INSTANCE_ID') or 
@@ -220,7 +228,7 @@ def list_non_films():
             continue
         
         # Skip unwanted categories
-        if any(cat in categories for cat in ["Kinderen", "Reality", "Spelshow", "Talkshow", "Home & Garden", "Sport", "Paardensport", "Bouwen en verbouwen"]):
+        if skip_categories_loader.should_skip(categories):
             continue
         
         # Get title

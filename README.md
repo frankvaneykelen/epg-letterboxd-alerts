@@ -75,7 +75,12 @@ TMDB_API_KEY=your_tmdb_api_key_here
    - Useful for filtering out children's movies, documentaries you're not interested in, etc.
    - Supports ±1 year tolerance for matching (same as watched.csv)
 
-3. **Enable in config.json:**
+3. **Optional: Customize skip categories for series:**
+   - Categories like "Kinderen", "Reality", "Sport" are filtered out by default
+   - Managed in Azure Table Storage with local JSON fallback (`data/skip-categories.json`)
+   - To customize: edit `data/skip-categories.json` and run `python migrate_skip_categories.py`
+
+4. **Enable in config.json:**
    ```json
    {
      "letterboxd": {
@@ -224,10 +229,11 @@ python list_non_films.py
 
 The script will:
 1. Fetch EPG data from Ziggo (64 channels configured in `data/channels-series.txt`)
-2. Filter for non-film programmes (excludes: Film, Kinderen, Reality, etc.)
-3. Find first episodes of new series
-4. Look up ratings and posters from TMDb
-5. Generate an HTML report in `data/new-series-{timestamp}.html`
+2. Filter for non-film programmes (excludes: Film category)
+3. Skip unwanted categories (configured in Table Storage or `data/skip-categories.json`)
+4. Find first episodes of new series
+5. Look up ratings and posters from TMDb
+6. Generate an HTML report in `data/new-series-{timestamp}.html`
 
 ### Configuration
 
