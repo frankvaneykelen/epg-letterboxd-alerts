@@ -80,12 +80,19 @@ class DoNotWatchSeriesLoader:
             entities = table_client.query_entities("PartitionKey eq 'DoNotWatch'")
             
             count = 0
+            skipped = 0
             for entity in entities:
-                title = entity.get('Title', '').strip()
+                title = entity.get('RowKey', '').strip()
                 if title:
                     self._do_not_watch_series.add(title.lower())
                     count += 1
+                    logger.debug(f"  Loaded series: {title}")
+                else:
+                    skipped += 1
+                    logger.warning(f"  Skipped entity with empty RowKey: {entity}")
             
+            if skipped > 0:
+                logger.warning(f"Skipped {skipped} entities with empty titles")
             logger.info(f"Loaded {count} series from do-not-watch table")
             return True
 

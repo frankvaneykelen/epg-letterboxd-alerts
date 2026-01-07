@@ -123,6 +123,7 @@ def list_non_films():
     # Load do-not-watch series list
     do_not_watch_loader = DoNotWatchSeriesLoader()
     do_not_watch_loader.load_data()
+    logger.info(f"Loaded {do_not_watch_loader.get_count()} series to do-not-watch list")
     
     # Determine paths based on environment
     is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 

@@ -72,11 +72,10 @@ def migrate_csv_to_table():
     for entry in entries:
         try:
             # Create entity with PartitionKey and RowKey
-            # For series, RowKey is just the title (no year)
+            # For series, RowKey is the title (no duplicate Title field needed)
             entity = {
                 'PartitionKey': 'DoNotWatch',
-                'RowKey': entry['Title'],  # Just title, no year
-                'Title': entry['Title'],
+                'RowKey': entry['Title'],
                 'Notes': entry['Notes']
             }
             
