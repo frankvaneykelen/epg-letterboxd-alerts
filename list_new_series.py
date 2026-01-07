@@ -261,15 +261,15 @@ def list_non_films():
         date_elem = programme.find('date')
         date = date_elem.text if date_elem is not None and date_elem.text else "-"
         
-        # Only include current year (2026) and previous year (2025)
+        # Only include the last 5 years
         current_year = datetime.now().year
         if date != "-":
             try:
                 year = int(date)
-                if year not in [current_year, current_year - 1]:
+                if year not in range(current_year - 4, current_year + 1):
                     continue
-            except ValueError:
-                continue  # Skip if date is not a valid year
+                    except ValueError:
+                        continue  # Skip if date is not a valid year
         
         # Get episode-num
         episode_elem = programme.find('episode-num')
