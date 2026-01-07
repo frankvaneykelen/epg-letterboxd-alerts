@@ -14,7 +14,7 @@ app = func.FunctionApp()
 
 
 @app.timer_trigger(arg_name="films_timer", schedule="0 0 */6 * * *")  # Every 6 hours at :00
-def epg_letterboxd_alerts_timer(films_timer: func.TimerRequest) -> None:
+def epg_letterboxd_movies_timer(films_timer: func.TimerRequest) -> None:
     """
     TimerTrigger function for EPG-Letterboxd Films Alerts.
     Runs every 6 hours at :00 (0:00, 6:00, 12:00, 18:00).
