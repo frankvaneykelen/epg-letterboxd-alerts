@@ -20,7 +20,7 @@
   },
   "filters": {
     "languages": ["en", "nl"],
-    "countries": ["NL", "GB", "EN"],
+    "countries": ["NL", "GB", "US", "IE"],
     "min_rating": 6.5,
     "include_subtitles": true
   },

@@ -305,6 +305,8 @@ def list_non_films():
         country = country_elem.text if country_elem is not None and country_elem.text else "-"
         
         # Filter by allowed countries (if configured)
+        # Note: Series without country data (country == "-") are always included to avoid
+        # filtering out older EPG data that may not have country information
         if allowed_countries and country != "-":
             if country not in allowed_countries:
                 logger.debug(f"  Skipping '{title}' - country '{country}' not in allowed list {allowed_countries}")
