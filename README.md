@@ -13,9 +13,9 @@ Combine Ziggo's EPG (XMLTV) with Letterboxd film data to generate personalized "
 - ☁️ Runs as Azure Function (TimerTrigger)
 - 💾 SQLite caching for efficient EPG updates
 
-![Film Recording Suggestions](docs/images/recording-suggestions.png)
+![Curated Ziggo Films to Record](docs/images/recording-suggestions.png)
 
-![New Series Starting](docs/images/new-series-starting-first-episodes.png)
+![Series Premieres](docs/images/new-series-starting-first-episodes.png)
 
 ## Setup
 
