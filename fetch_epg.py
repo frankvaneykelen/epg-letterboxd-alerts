@@ -65,7 +65,7 @@ def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", 
         print("Fetching EPG data...")
         grabber.grab()
         
-        # Upload cache back to blob storage (in Azure)
+        # Upload cache and XML back to blob storage (in Azure)
         if is_azure:
             try:
                 from azure.storage.blob import BlobClient
@@ -73,21 +73,37 @@ def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", 
                 
                 storage_account = "ziggoepgletterboxd"
                 account_url = f"https://{storage_account}.blob.core.windows.net"
+                credential = DefaultAzureCredential()
                 
-                blob_client = BlobClient(
+                # Upload SQLite cache
+                cache_blob_client = BlobClient(
                     account_url=account_url,
                     container_name="data",
                     blob_name="ziggogoepg_cache.sqlite3",
-                    credential=DefaultAzureCredential()
+                    credential=credential
                 )
                 
                 with open(database_file, 'rb') as cache_file:
-                    blob_client.upload_blob(cache_file, overwrite=True)
+                    cache_blob_client.upload_blob(cache_file, overwrite=True)
                 
                 cache_size = Path(database_file).stat().st_size
                 print(f"Uploaded SQLite cache to blob storage ({cache_size} bytes)")
+                
+                # Upload XMLTV file for debugging
+                xml_blob_client = BlobClient(
+                    account_url=account_url,
+                    container_name="data",
+                    blob_name="ziggogo.xml",
+                    credential=credential
+                )
+                
+                with open(output_file, 'rb') as xml_file:
+                    xml_blob_client.upload_blob(xml_file, overwrite=True)
+                
+                xml_size = Path(output_file).stat().st_size
+                print(f"Uploaded XMLTV file to blob storage ({xml_size} bytes)")
             except Exception as e:
-                print(f"Could not upload cache: {e}")
+                print(f"Could not upload files to blob storage: {e}")
         
         print("\n✓ Successfully fetched EPG data!")
         print(f"  Output: {output_file}")
