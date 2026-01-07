@@ -375,10 +375,7 @@ def list_non_films():
     html_lines.append('</head>')
     html_lines.append('<body>')
     html_lines.append('    <div class="container-fluid py-4">')
-    html_lines.append('        <div class="d-flex justify-content-between align-items-center mb-3">')
-    html_lines.append('            <h1 class="mb-0">Series Premieres</h1>')
-    html_lines.append('            <a href="index.html" class="btn btn-outline-primary">← View Films</a>')
-    html_lines.append('        </div>')
+    html_lines.append(_build_nav_menu('new-series.html'))
     html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total new series: {non_film_count}</p>')
     html_lines.append('        <p class="text-muted">Showing only first episodes (0.0., 0.1., 1.0., 1.1.) from non-Film programmes</p>')
     html_lines.append('        <div class="table-responsive">')
@@ -584,6 +581,368 @@ def list_non_films():
         print(f"Successfully uploaded new-series.html to blob storage ({non_film_count} programmes)")
     else:
         print(f"Failed to upload to blob storage (saved {non_film_count} programmes to local files)")
+    
+    # Also generate grouped views
+    _generate_grouped_views(programmes, icon_map, timestamp)
+
+
+def _generate_grouped_views(programmes, icon_map, timestamp):
+    """Generate channel and genre grouped views."""
+    from collections import defaultdict
+    
+    # Generate by-channel view
+    _generate_by_channel_view(programmes, icon_map, timestamp)
+    
+    # Generate by-genre view
+    _generate_by_genre_view(programmes, icon_map, timestamp)
+
+
+def _build_nav_menu(active_page):
+    """Build navigation menu with active page highlighted."""
+    pages = [
+        ('new-series.html', 'Chronological'),
+        ('new-series-per-channel.html', 'By Channel'),
+        ('new-series-per-genre.html', 'By Genre'),
+        ('index.html', '← Films')
+    ]
+    
+    nav_html = []
+    nav_html.append('        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">')
+    nav_html.append('            <div class="container-fluid">')
+    nav_html.append('                <span class="navbar-brand">Series Premieres</span>')
+    nav_html.append('                <div class="navbar-nav">')
+    
+    for page, label in pages:
+        if page == active_page:
+            nav_html.append(f'                    <span class="nav-link active">{label}</span>')
+        else:
+            nav_html.append(f'                    <a class="nav-link" href="{page}">{label}</a>')
+    
+    nav_html.append('                </div>')
+    nav_html.append('            </div>')
+    nav_html.append('        </nav>')
+    
+    return '\n'.join(nav_html)
+
+
+def _generate_by_channel_view(programmes, icon_map, timestamp):
+    """Generate new-series-per-channel.html grouped by channel."""
+    from collections import defaultdict
+    
+    # Group programmes by channel
+    by_channel = defaultdict(list)
+    for prog in programmes:
+        by_channel[prog['channel']].append(prog)
+    
+    # Sort channels A-Z
+    sorted_channels = sorted(by_channel.keys())
+    
+    # Build HTML
+    html_lines = []
+    html_lines.append('<!DOCTYPE html>')
+    html_lines.append('<html lang="en" data-bs-theme="dark">')
+    html_lines.append('<head>')
+    html_lines.append('    <meta charset="UTF-8">')
+    html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
+    html_lines.append('    <title>Series Premieres - By Channel</title>')
+    html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
+    html_lines.append('    <style>')
+    html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
+    html_lines.append('        .table { --bs-table-bg: #1a1a1a; --bs-table-striped-bg: #222; }')
+    html_lines.append('        .table td, .table th { border-color: #333; }')
+    html_lines.append('        a { color: #4a9eff; text-decoration: none; }')
+    html_lines.append('        a:hover { color: #6eb4ff; text-decoration: underline; }')
+    html_lines.append('        .channel-section { margin-bottom: 3rem; }')
+    html_lines.append('    </style>')
+    html_lines.append('</head>')
+    html_lines.append('<body>')
+    html_lines.append('    <div class="container-fluid py-4">')
+    html_lines.append(_build_nav_menu('new-series-per-channel.html'))
+    html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(programmes)} series across {len(sorted_channels)} channels</p>')
+    
+    # Generate a table for each channel
+    for channel in sorted_channels:
+        progs = by_channel[channel]
+        html_lines.append(f'        <div class="channel-section">')
+        html_lines.append(f'            <h2>{channel} ({len(progs)})</h2>')
+        html_lines.append('            <div class="table-responsive">')
+        html_lines.append(_build_programme_table(progs, icon_map))
+        html_lines.append('            </div>')
+        html_lines.append('        </div>')
+    
+    html_lines.append('    </div>')
+    html_lines.append(_build_poster_modal())
+    html_lines.append('    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>')
+    html_lines.append('    <script>')
+    html_lines.append('        function showPoster(url, title) {')
+    html_lines.append('            document.getElementById("posterModalImage").src = url;')
+    html_lines.append('            document.getElementById("posterModalLabel").textContent = title;')
+    html_lines.append('            new bootstrap.Modal(document.getElementById("posterModal")).show();')
+    html_lines.append('        }')
+    html_lines.append('    </script>')
+    html_lines.append('</body>')
+    html_lines.append('</html>')
+    
+    html_content = '\n'.join(html_lines)
+    
+    # Upload and save
+    upload_html_to_blob(html_content, "new-series-per-channel.html")
+    _save_local_html(html_content, "new-series-per-channel.html", timestamp)
+    print(f"Generated new-series-per-channel.html ({len(sorted_channels)} channels)")
+
+
+def _generate_by_genre_view(programmes, icon_map, timestamp):
+    """Generate new-series-per-genre.html grouped by genre."""
+    from collections import defaultdict
+    
+    # Group programmes by first non-Film genre
+    by_genre = defaultdict(list)
+    for prog in programmes:
+        genre = "-"
+        if prog['categories'] != "-":
+            cats = prog['categories'].split(", ")
+            for cat in cats:
+                if cat != "Film":
+                    genre = cat
+                    break
+        by_genre[genre].append(prog)
+    
+    # Sort genres A-Z
+    sorted_genres = sorted(by_genre.keys())
+    
+    # Build HTML
+    html_lines = []
+    html_lines.append('<!DOCTYPE html>')
+    html_lines.append('<html lang="en" data-bs-theme="dark">')
+    html_lines.append('<head>')
+    html_lines.append('    <meta charset="UTF-8">')
+    html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
+    html_lines.append('    <title>Series Premieres - By Genre</title>')
+    html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
+    html_lines.append('    <style>')
+    html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
+    html_lines.append('        .table { --bs-table-bg: #1a1a1a; --bs-table-striped-bg: #222; }')
+    html_lines.append('        .table td, .table th { border-color: #333; }')
+    html_lines.append('        a { color: #4a9eff; text-decoration: none; }')
+    html_lines.append('        a:hover { color: #6eb4ff; text-decoration: underline; }')
+    html_lines.append('        .genre-section { margin-bottom: 3rem; }')
+    html_lines.append('    </style>')
+    html_lines.append('</head>')
+    html_lines.append('<body>')
+    html_lines.append('    <div class="container-fluid py-4">')
+    html_lines.append(_build_nav_menu('new-series-per-genre.html'))
+    html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(programmes)} series across {len(sorted_genres)} genres</p>')
+    
+    # Generate a table for each genre
+    for genre in sorted_genres:
+        progs = by_genre[genre]
+        html_lines.append(f'        <div class="genre-section">')
+        html_lines.append(f'            <h2>{genre} ({len(progs)})</h2>')
+        html_lines.append('            <div class="table-responsive">')
+        html_lines.append(_build_programme_table(progs, icon_map))
+        html_lines.append('            </div>')
+        html_lines.append('        </div>')
+    
+    html_lines.append('    </div>')
+    html_lines.append(_build_poster_modal())
+    html_lines.append('    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>')
+    html_lines.append('    <script>')
+    html_lines.append('        function showPoster(url, title) {')
+    html_lines.append('            document.getElementById("posterModalImage").src = url;')
+    html_lines.append('            document.getElementById("posterModalLabel").textContent = title;')
+    html_lines.append('            new bootstrap.Modal(document.getElementById("posterModal")).show();')
+    html_lines.append('        }')
+    html_lines.append('    </script>')
+    html_lines.append('</body>')
+    html_lines.append('</html>')
+    
+    html_content = '\n'.join(html_lines)
+    
+    # Upload and save
+    upload_html_to_blob(html_content, "new-series-per-genre.html")
+    _save_local_html(html_content, "new-series-per-genre.html", timestamp)
+    print(f"Generated new-series-per-genre.html ({len(sorted_genres)} genres)")
+
+
+def _build_programme_table(programmes, icon_map):
+    """Build HTML table for a list of programmes."""
+    table_lines = []
+    table_lines.append('                <table class="table table-striped table-hover">')
+    table_lines.append('                    <thead>')
+    table_lines.append('                        <tr>')
+    table_lines.append('                            <th>Title</th>')
+    table_lines.append('                            <th>Poster</th>')
+    table_lines.append('                            <th>Subtitle / Description</th>')
+    table_lines.append('                            <th>Episode</th>')
+    table_lines.append('                            <th>Rating</th>')
+    table_lines.append('                            <th>LB</th>')
+    table_lines.append('                            <th>Year</th>')
+    table_lines.append('                            <th>Genre</th>')
+    table_lines.append('                            <th>Cntry</th>')
+    table_lines.append('                            <th>Director</th>')
+    table_lines.append('                            <th>Actors</th>')
+    table_lines.append('                            <th>Channel</th>')
+    table_lines.append('                            <th>Date</th>')
+    table_lines.append('                            <th>Time (CET)</th>')
+    table_lines.append('                        </tr>')
+    table_lines.append('                    </thead>')
+    table_lines.append('                    <tbody>')
+    
+    for prog in programmes:
+        table_lines.append(_build_table_row(prog, icon_map))
+    
+    table_lines.append('                    </tbody>')
+    table_lines.append('                </table>')
+    
+    return '\n'.join(table_lines)
+
+
+def _build_table_row(prog, icon_map):
+    """Build a single table row for a programme."""
+    search_url = f"https://www.ziggogo.tv/nl/epg/initial/search/{quote(prog['title'])}%20"
+    
+    # Letterboxd search link
+    lb_search_parts = [quote(p, safe='') for p in [prog['title'], prog['date']] if p and p != "-"]
+    lb_search_query = "+".join(lb_search_parts)
+    lb_search_url = f"https://letterboxd.com/search/films/{lb_search_query}/?adult"
+    lb_link = f'<a href="{lb_search_url}" target="letterboxd">🔍</a>'
+    
+    # Title link
+    title_html = f'<a href="{search_url}" target="ziggogo">{prog["title"]}</a>'
+    
+    # Poster image
+    poster_html = "-"
+    if prog['tmdb_data'] and prog['tmdb_data'].get('poster_path'):
+        poster_path = prog['tmdb_data']['poster_path']
+        thumb_url = f"https://image.tmdb.org/t/p/w92{poster_path}"
+        full_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+        title_escaped = prog['title'].replace('"', '&quot;')
+        poster_html = f'<img src="{thumb_url}" alt="{prog["title"]}" style="height: 60px; border-radius: 4px; cursor: pointer;" onclick="showPoster(\'{full_url}\', \'{title_escaped}\')">'
+    
+    # Rating with TMDb link
+    if prog['tmdb_data']:
+        tmdb_id = prog['tmdb_data'].get('id')
+        tmdb_url = f"https://www.themoviedb.org/tv/{tmdb_id}"
+        rating = f'<a href="{tmdb_url}" target="tmdb">{prog["rating"]}</a>'
+    else:
+        rating = prog['rating']
+    
+    # Genre
+    genre = "-"
+    if prog['categories'] != "-":
+        cats = prog['categories'].split(", ")
+        for cat in cats:
+            if cat != "Film":
+                genre = cat
+                break
+    if genre == "Dramaseries":
+        genre = f"<strong>{genre}</strong>"
+    
+    # Director link
+    if prog['director'] != "-":
+        normalized = unicodedata.normalize('NFD', prog['director'])
+        ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+        director_slug = ascii_name.lower().replace(" ", "-").replace(".", "").replace("'", "")
+        director = f'<a href="https://letterboxd.com/director/{director_slug}/" target="letterboxd">{prog["director"]}</a>'
+    else:
+        director = "-"
+    
+    # Actor links
+    if prog['actors']:
+        actor_links = []
+        for actor in prog['actors'][:3]:
+            normalized = unicodedata.normalize('NFD', actor)
+            ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+            actor_slug = ascii_name.lower().replace(" ", "-").replace(".", "").replace("'", "")
+            actor_links.append(f'<a href="https://letterboxd.com/actor/{actor_slug}/" target="letterboxd">{actor}</a>')
+        actors = ", ".join(actor_links)
+    else:
+        actors = "-"
+    
+    # Channel with logo
+    channel_id = prog.get('channel_id', '')
+    channel_icon = icon_map.get(channel_id, '')
+    if channel_icon:
+        channel_html = f'<img src="{channel_icon}" alt="{prog["channel"]}" title="{prog["channel"]}" style="height: 24px; vertical-align: middle;">'
+    else:
+        channel_html = prog['channel']
+    
+    # Date and Time
+    if prog['start_time']:
+        bcast_date = prog['start_time'].strftime("%Y-%m-%d")
+        bcast_time = prog['start_time'].strftime("%H:%M")
+    else:
+        bcast_date = "-"
+        bcast_time = "-"
+    
+    # Subtitle and description
+    if prog["subtitle"] != "-" and prog["description"] != "-":
+        subtitle_desc = f"{prog['subtitle']}<br><small class='text-muted'>{prog['description']}</small>"
+    elif prog["subtitle"] != "-":
+        subtitle_desc = prog["subtitle"]
+    elif prog["description"] != "-":
+        subtitle_desc = f"<small class='text-muted'>{prog['description']}</small>"
+    else:
+        subtitle_desc = "-"
+    
+    row_html = []
+    row_html.append('                        <tr>')
+    row_html.append(f'                            <td>{title_html}</td>')
+    row_html.append(f'                            <td>{poster_html}</td>')
+    row_html.append(f'                            <td>{subtitle_desc}</td>')
+    row_html.append(f'                            <td>{prog["episode"]}</td>')
+    row_html.append(f'                            <td>{rating}</td>')
+    row_html.append(f'                            <td>{lb_link}</td>')
+    row_html.append(f'                            <td>{prog["date"]}</td>')
+    row_html.append(f'                            <td>{genre}</td>')
+    row_html.append(f'                            <td>{prog["country"]}</td>')
+    row_html.append(f'                            <td>{director}</td>')
+    row_html.append(f'                            <td>{actors}</td>')
+    row_html.append(f'                            <td>{channel_html}</td>')
+    row_html.append(f'                            <td>{bcast_date}</td>')
+    row_html.append(f'                            <td>{bcast_time}</td>')
+    row_html.append('                        </tr>')
+    
+    return '\n'.join(row_html)
+
+
+def _build_poster_modal():
+    """Build the Bootstrap modal for poster viewing."""
+    modal_lines = []
+    modal_lines.append('    <!-- Poster Modal -->')
+    modal_lines.append('    <div class="modal fade" id="posterModal" tabindex="-1">')
+    modal_lines.append('        <div class="modal-dialog modal-dialog-centered">')
+    modal_lines.append('            <div class="modal-content bg-dark">')
+    modal_lines.append('                <div class="modal-header border-secondary">')
+    modal_lines.append('                    <h5 class="modal-title" id="posterModalLabel">Poster</h5>')
+    modal_lines.append('                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>')
+    modal_lines.append('                </div>')
+    modal_lines.append('                <div class="modal-body text-center">')
+    modal_lines.append('                    <img id="posterModalImage" src="" class="img-fluid" style="max-height: 80vh;">')
+    modal_lines.append('                </div>')
+    modal_lines.append('            </div>')
+    modal_lines.append('        </div>')
+    modal_lines.append('    </div>')
+    
+    return '\n'.join(modal_lines)
+
+
+def _save_local_html(html_content, filename, timestamp):
+    """Save HTML file locally if not in Azure."""
+    is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
+               os.environ.get('WEBSITE_INSTANCE_ID') or 
+               os.environ.get('WEBSITE_SITE_NAME'))
+    
+    if not is_azure:
+        try:
+            local_path = Path("wwwroot") / filename
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(local_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            logger.info(f"Saved local copy to {local_path}")
+        except Exception as e:
+            logger.warning(f"Could not save local copy: {e}")
+
 
 if __name__ == "__main__":
     list_non_films()

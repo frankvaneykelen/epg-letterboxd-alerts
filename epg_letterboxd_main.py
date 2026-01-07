@@ -324,10 +324,7 @@ def main(mytimer: func.TimerRequest) -> None:
         html_lines.append('</head>')
         html_lines.append('<body>')
         html_lines.append('    <div class="container-fluid py-4">')
-        html_lines.append('        <div class="d-flex justify-content-between align-items-center mb-3">')
-        html_lines.append('            <h1 class="mb-0">Curated Ziggo Films to Record</h1>')
-        html_lines.append('            <a href="new-series.html" class="btn btn-outline-primary">View New Series →</a>')
-        html_lines.append('        </div>')
+        html_lines.append(_build_film_nav_menu('index.html'))
         html_lines.append(f'        <p class="text-muted">Generated: {now.strftime("%Y-%m-%d %H:%M:%S")} | Total suggestions: {len(suggestions)}</p>')
         html_lines.append('        <div class="table-responsive">')
         html_lines.append('            <table class="table table-striped table-hover">')
@@ -551,6 +548,9 @@ def main(mytimer: func.TimerRequest) -> None:
         else:
             logger.warning("Failed to upload to blob storage (local files still available)")
         
+        # Also generate grouped views
+        _generate_grouped_film_views(suggestions, timestamp)
+        
         # Log results to console
         logger.info(f"\nGenerated {len(suggestions)} recording suggestions")
         logger.info("\n" + "="*150)
@@ -590,6 +590,357 @@ def main(mytimer: func.TimerRequest) -> None:
     except Exception as e:
         logger.error(f"Function execution failed: {e}", exc_info=True)
         raise
+
+
+def _generate_grouped_film_views(suggestions, timestamp):
+    """Generate channel and genre grouped views for films."""
+    from collections import defaultdict
+    
+    # Generate by-channel view
+    _generate_films_by_channel_view(suggestions, timestamp)
+    
+    # Generate by-genre view
+    _generate_films_by_genre_view(suggestions, timestamp)
+
+
+def _build_film_nav_menu(active_page):
+    """Build navigation menu for film pages with active page highlighted."""
+    pages = [
+        ('index.html', 'Chronological'),
+        ('index-per-channel.html', 'By Channel'),
+        ('index-per-genre.html', 'By Genre'),
+        ('new-series.html', 'Series →')
+    ]
+    
+    nav_html = []
+    nav_html.append('        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">')
+    nav_html.append('            <div class="container-fluid">')
+    nav_html.append('                <span class="navbar-brand">Curated Ziggo Films to Record</span>')
+    nav_html.append('                <div class="navbar-nav">')
+    
+    for page, label in pages:
+        if page == active_page:
+            nav_html.append(f'                    <span class="nav-link active">{label}</span>')
+        else:
+            nav_html.append(f'                    <a class="nav-link" href="{page}">{label}</a>')
+    
+    nav_html.append('                </div>')
+    nav_html.append('            </div>')
+    nav_html.append('        </nav>')
+    
+    return '\n'.join(nav_html)
+
+
+def _generate_films_by_channel_view(suggestions, timestamp):
+    """Generate index-per-channel.html grouped by channel."""
+    from collections import defaultdict
+    
+    # Group suggestions by channel
+    by_channel = defaultdict(list)
+    for suggestion in suggestions:
+        channel = suggestion['broadcast'].channel_name
+        by_channel[channel].append(suggestion)
+    
+    # Sort channels A-Z
+    sorted_channels = sorted(by_channel.keys())
+    
+    # Build HTML
+    html_lines = []
+    html_lines.append('<!DOCTYPE html>')
+    html_lines.append('<html lang="en" data-bs-theme="dark">')
+    html_lines.append('<head>')
+    html_lines.append('    <meta charset="UTF-8">')
+    html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
+    html_lines.append('    <title>Films to Record - By Channel</title>')
+    html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
+    html_lines.append('    <style>')
+    html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
+    html_lines.append('        .table { --bs-table-bg: #1a1a1a; --bs-table-striped-bg: #222; }')
+    html_lines.append('        .table td, .table th { border-color: #333; }')
+    html_lines.append('        a { color: #4a9eff; text-decoration: none; }')
+    html_lines.append('        a:hover { color: #6eb4ff; text-decoration: underline; }')
+    html_lines.append('        .channel-section { margin-bottom: 3rem; }')
+    html_lines.append('    </style>')
+    html_lines.append('</head>')
+    html_lines.append('<body>')
+    html_lines.append('    <div class="container-fluid py-4">')
+    html_lines.append(_build_film_nav_menu('index-per-channel.html'))
+    html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(suggestions)} films across {len(sorted_channels)} channels</p>')
+    
+    # Generate a table for each channel
+    for channel in sorted_channels:
+        films = by_channel[channel]
+        html_lines.append(f'        <div class="channel-section">')
+        html_lines.append(f'            <h2>{channel} ({len(films)})</h2>')
+        html_lines.append('            <div class="table-responsive">')
+        html_lines.append(_build_film_table(films))
+        html_lines.append('            </div>')
+        html_lines.append('        </div>')
+    
+    html_lines.append('    </div>')
+    html_lines.append(_build_film_poster_modal())
+    html_lines.append('    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>')
+    html_lines.append('    <script>')
+    html_lines.append('        function showPoster(url, title) {')
+    html_lines.append('            document.getElementById("posterModalImage").src = url;')
+    html_lines.append('            document.getElementById("posterModalLabel").textContent = title;')
+    html_lines.append('            new bootstrap.Modal(document.getElementById("posterModal")).show();')
+    html_lines.append('        }')
+    html_lines.append('    </script>')
+    html_lines.append('</body>')
+    html_lines.append('</html>')
+    
+    html_content = '\n'.join(html_lines)
+    
+    # Upload and save
+    upload_html_to_blob(html_content, "index-per-channel.html")
+    _save_film_local_html(html_content, "index-per-channel.html", timestamp)
+    logger.info(f"Generated index-per-channel.html ({len(sorted_channels)} channels)")
+
+
+def _generate_films_by_genre_view(suggestions, timestamp):
+    """Generate index-per-genre.html grouped by genre."""
+    from collections import defaultdict
+    
+    # Group suggestions by first genre
+    by_genre = defaultdict(list)
+    for suggestion in suggestions:
+        genre = "-"
+        if suggestion['broadcast'].categories:
+            genre = suggestion['broadcast'].categories[0]
+        by_genre[genre].append(suggestion)
+    
+    # Sort genres A-Z
+    sorted_genres = sorted(by_genre.keys())
+    
+    # Build HTML
+    html_lines = []
+    html_lines.append('<!DOCTYPE html>')
+    html_lines.append('<html lang="en" data-bs-theme="dark">')
+    html_lines.append('<head>')
+    html_lines.append('    <meta charset="UTF-8">')
+    html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
+    html_lines.append('    <title>Films to Record - By Genre</title>')
+    html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
+    html_lines.append('    <style>')
+    html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
+    html_lines.append('        .table { --bs-table-bg: #1a1a1a; --bs-table-striped-bg: #222; }')
+    html_lines.append('        .table td, .table th { border-color: #333; }')
+    html_lines.append('        a { color: #4a9eff; text-decoration: none; }')
+    html_lines.append('        a:hover { color: #6eb4ff; text-decoration: underline; }')
+    html_lines.append('        .genre-section { margin-bottom: 3rem; }')
+    html_lines.append('    </style>')
+    html_lines.append('</head>')
+    html_lines.append('<body>')
+    html_lines.append('    <div class="container-fluid py-4">')
+    html_lines.append(_build_film_nav_menu('index-per-genre.html'))
+    html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(suggestions)} films across {len(sorted_genres)} genres</p>')
+    
+    # Generate a table for each genre
+    for genre in sorted_genres:
+        films = by_genre[genre]
+        html_lines.append(f'        <div class="genre-section">')
+        html_lines.append(f'            <h2>{genre} ({len(films)})</h2>')
+        html_lines.append('            <div class="table-responsive">')
+        html_lines.append(_build_film_table(films))
+        html_lines.append('            </div>')
+        html_lines.append('        </div>')
+    
+    html_lines.append('    </div>')
+    html_lines.append(_build_film_poster_modal())
+    html_lines.append('    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>')
+    html_lines.append('    <script>')
+    html_lines.append('        function showPoster(url, title) {')
+    html_lines.append('            document.getElementById("posterModalImage").src = url;')
+    html_lines.append('            document.getElementById("posterModalLabel").textContent = title;')
+    html_lines.append('            new bootstrap.Modal(document.getElementById("posterModal")).show();')
+    html_lines.append('        }')
+    html_lines.append('    </script>')
+    html_lines.append('</body>')
+    html_lines.append('</html>')
+    
+    html_content = '\n'.join(html_lines)
+    
+    # Upload and save
+    upload_html_to_blob(html_content, "index-per-genre.html")
+    _save_film_local_html(html_content, "index-per-genre.html", timestamp)
+    logger.info(f"Generated index-per-genre.html ({len(sorted_genres)} genres)")
+
+
+def _build_film_table(suggestions):
+    """Build HTML table for a list of film suggestions."""
+    table_lines = []
+    table_lines.append('                <table class="table table-striped table-hover">')
+    table_lines.append('                    <thead>')
+    table_lines.append('                        <tr>')
+    table_lines.append('                            <th>Title</th>')
+    table_lines.append('                            <th>Poster</th>')
+    table_lines.append('                            <th>Subtitle / Description</th>')
+    table_lines.append('                            <th>Rating</th>')
+    table_lines.append('                            <th>LB</th>')
+    table_lines.append('                            <th>Year</th>')
+    table_lines.append('                            <th>Genre</th>')
+    table_lines.append('                            <th>Cntry</th>')
+    table_lines.append('                            <th>Director</th>')
+    table_lines.append('                            <th>Actors</th>')
+    table_lines.append('                            <th>Channel</th>')
+    table_lines.append('                            <th>Date</th>')
+    table_lines.append('                            <th>Time (CET)</th>')
+    table_lines.append('                        </tr>')
+    table_lines.append('                    </thead>')
+    table_lines.append('                    <tbody>')
+    
+    for suggestion in suggestions:
+        table_lines.append(_build_film_table_row(suggestion))
+    
+    table_lines.append('                    </tbody>')
+    table_lines.append('                </table>')
+    
+    return '\n'.join(table_lines)
+
+
+def _build_film_table_row(suggestion):
+    """Build a single table row for a film suggestion."""
+    from urllib.parse import quote
+    
+    broadcast = suggestion['broadcast']
+    title = broadcast.title
+    year = broadcast.date if broadcast.date else "-"
+    
+    # Ziggogo search link
+    search_url = f"https://www.ziggogo.tv/nl/epg/initial/search/{quote(title)}%20{year}"
+    title_html = f'<a href="{search_url}" target="ziggogo">{title}</a>'
+    
+    # Letterboxd link
+    lb_url = suggestion.get('letterboxd_url')
+    if lb_url:
+        lb_link = f'<a href="{lb_url}" target="letterboxd">🔗</a>'
+    else:
+        lb_link = "-"
+    
+    # Poster image
+    poster_html = "-"
+    if suggestion.get('tmdb_data') and suggestion['tmdb_data'].get('poster_path'):
+        poster_path = suggestion['tmdb_data']['poster_path']
+        thumb_url = f"https://image.tmdb.org/t/p/w92{poster_path}"
+        full_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+        title_escaped = title.replace('"', '&quot;')
+        poster_html = f'<img src="{thumb_url}" alt="{title}" style="height: 60px; border-radius: 4px; cursor: pointer;" onclick="showPoster(\'{full_url}\', \'{title_escaped}\')">'
+    
+    # Rating with TMDb link
+    rating_val = suggestion.get('rating')
+    if rating_val and suggestion.get('tmdb_data'):
+        tmdb_id = suggestion['tmdb_data'].get('id')
+        tmdb_url = f"https://www.themoviedb.org/movie/{tmdb_id}"
+        rating = f'<a href="{tmdb_url}" target="tmdb">{rating_val:.1f}</a>'
+    elif rating_val:
+        rating = f'{rating_val:.1f}'
+    else:
+        rating = "-"
+    
+    # Genre
+    genre = broadcast.categories[0] if broadcast.categories else "-"
+    
+    # Country
+    country = broadcast.country if broadcast.country else "-"
+    
+    # Director link
+    if broadcast.director:
+        import unicodedata
+        normalized = unicodedata.normalize('NFD', broadcast.director)
+        ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+        director_slug = ascii_name.lower().replace(" ", "-").replace(".", "").replace("'", "")
+        director = f'<a href="https://letterboxd.com/director/{director_slug}/" target="letterboxd">{broadcast.director}</a>'
+    else:
+        director = "-"
+    
+    # Actor links
+    if broadcast.actors:
+        import unicodedata
+        actor_links = []
+        for actor in broadcast.actors[:3]:
+            normalized = unicodedata.normalize('NFD', actor)
+            ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+            actor_slug = ascii_name.lower().replace(" ", "-").replace(".", "").replace("'", "")
+            actor_links.append(f'<a href="https://letterboxd.com/actor/{actor_slug}/" target="letterboxd">{actor}</a>')
+        actors = ", ".join(actor_links)
+    else:
+        actors = "-"
+    
+    # Channel
+    channel = broadcast.channel_name
+    
+    # Date and Time
+    bcast_date = broadcast.start_time.strftime("%Y-%m-%d")
+    bcast_time = broadcast.start_time.strftime("%H:%M")
+    
+    # Subtitle and description
+    subtitle_desc = ""
+    if broadcast.subtitle and broadcast.description:
+        subtitle_desc = f"{broadcast.subtitle}<br><small class='text-muted'>{broadcast.description}</small>"
+    elif broadcast.subtitle:
+        subtitle_desc = broadcast.subtitle
+    elif broadcast.description:
+        subtitle_desc = f"<small class='text-muted'>{broadcast.description}</small>"
+    else:
+        subtitle_desc = "-"
+    
+    row_html = []
+    row_html.append('                        <tr>')
+    row_html.append(f'                            <td>{title_html}</td>')
+    row_html.append(f'                            <td>{poster_html}</td>')
+    row_html.append(f'                            <td>{subtitle_desc}</td>')
+    row_html.append(f'                            <td>{rating}</td>')
+    row_html.append(f'                            <td>{lb_link}</td>')
+    row_html.append(f'                            <td>{year}</td>')
+    row_html.append(f'                            <td>{genre}</td>')
+    row_html.append(f'                            <td>{country}</td>')
+    row_html.append(f'                            <td>{director}</td>')
+    row_html.append(f'                            <td>{actors}</td>')
+    row_html.append(f'                            <td>{channel}</td>')
+    row_html.append(f'                            <td>{bcast_date}</td>')
+    row_html.append(f'                            <td>{bcast_time}</td>')
+    row_html.append('                        </tr>')
+    
+    return '\n'.join(row_html)
+
+
+def _build_film_poster_modal():
+    """Build the Bootstrap modal for poster viewing."""
+    modal_lines = []
+    modal_lines.append('    <!-- Poster Modal -->')
+    modal_lines.append('    <div class="modal fade" id="posterModal" tabindex="-1">')
+    modal_lines.append('        <div class="modal-dialog modal-dialog-centered">')
+    modal_lines.append('            <div class="modal-content bg-dark">')
+    modal_lines.append('                <div class="modal-header border-secondary">')
+    modal_lines.append('                    <h5 class="modal-title" id="posterModalLabel">Poster</h5>')
+    modal_lines.append('                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>')
+    modal_lines.append('                </div>')
+    modal_lines.append('                <div class="modal-body text-center">')
+    modal_lines.append('                    <img id="posterModalImage" src="" class="img-fluid" style="max-height: 80vh;">')
+    modal_lines.append('                </div>')
+    modal_lines.append('            </div>')
+    modal_lines.append('        </div>')
+    modal_lines.append('    </div>')
+    
+    return '\n'.join(modal_lines)
+
+
+def _save_film_local_html(html_content, filename, timestamp):
+    """Save HTML file locally if not in Azure."""
+    is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
+               os.environ.get('WEBSITE_INSTANCE_ID') or 
+               os.environ.get('WEBSITE_SITE_NAME'))
+    
+    if not is_azure:
+        try:
+            local_path = Path("wwwroot") / filename
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(local_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            logger.info(f"Saved local copy to {local_path}")
+        except Exception as e:
+            logger.warning(f"Could not save local copy: {e}")
 
 
 # For local testing / development
