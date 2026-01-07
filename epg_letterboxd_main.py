@@ -274,7 +274,7 @@ def main(mytimer: func.TimerRequest) -> None:
 
         logger.info(f"Filtered EPG to {len(broadcasts)} movie broadcasts")
 
-        # # TEMPORARY: Limit to first x movies for testing
+        # TEMPORARY: Limit to first x movies for testing
         # broadcasts = broadcasts[:25]
         # logger.info(f"⚠️ TESTING MODE: Limited to first {len(broadcasts)} movies")
         
@@ -312,7 +312,7 @@ def main(mytimer: func.TimerRequest) -> None:
         html_lines.append('<head>')
         html_lines.append('    <meta charset="UTF-8">')
         html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
-        html_lines.append('    <title>Curated Ziggo Films to Record</title>')
+        html_lines.append('    <title>Ziggo Films to Record - Curated for @stereoparty</title>')
         html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
         html_lines.append('    <style>')
         html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
@@ -615,7 +615,7 @@ def _build_film_nav_menu(active_page):
     nav_html = []
     nav_html.append('        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">')
     nav_html.append('            <div class="container-fluid">')
-    nav_html.append('                <span class="navbar-brand">Curated Ziggo Films to Record</span>')
+    nav_html.append('                <span class="navbar-brand">Ziggo Films to Record - Curated for <a href="https://letterboxd.com/stereoparty">@stereoparty</a></span>')
     nav_html.append('                <div class="navbar-nav">')
     
     for page, label in pages:
@@ -651,7 +651,7 @@ def _generate_films_by_channel_view(suggestions, timestamp):
     html_lines.append('<head>')
     html_lines.append('    <meta charset="UTF-8">')
     html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    html_lines.append('    <title>Films to Record - By Channel</title>')
+    html_lines.append('    <title>Ziggo Films to Record - Curated for @stereoparty - By Channel</title>')
     html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
     html_lines.append('    <style>')
     html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
@@ -720,7 +720,7 @@ def _generate_films_by_genre_view(suggestions, timestamp):
     html_lines.append('<head>')
     html_lines.append('    <meta charset="UTF-8">')
     html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    html_lines.append('    <title>Films to Record - By Genre</title>')
+    html_lines.append('    <title>Ziggo Films to Record - Curated for @stereoparty - By Genre</title>')
     html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
     html_lines.append('    <style>')
     html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
@@ -811,12 +811,18 @@ def _build_film_table_row(suggestion):
     search_url = f"https://www.ziggogo.tv/nl/epg/initial/search/{quote(title)}%20{year}"
     title_html = f'<a href="{search_url}" target="ziggogo">{title}</a>'
     
-    # Letterboxd link
-    lb_url = suggestion.get('letterboxd_url')
-    if lb_url:
-        lb_link = f'<a href="{lb_url}" target="letterboxd">🔗</a>'
+    # Build Letterboxd search link
+    tmdb_data = suggestion.get('tmdb_data')
+    if tmdb_data and tmdb_data.get('title'):
+        tmdb_title = tmdb_data.get('title')
     else:
-        lb_link = "-"
+        tmdb_title = broadcast.title
+    tmdb_year = year if year != "-" else ""
+    # Escape each part individually, then join with +
+    lb_search_parts = [quote(p, safe='') for p in [tmdb_title, tmdb_year] if p]
+    lb_search_query = "+".join(lb_search_parts)
+    lb_search_url = f"https://letterboxd.com/search/films/{lb_search_query}/?adult"
+    lb_link = f'<a href="{lb_search_url}" target="letterboxd">🔍</a>'
     
     # Poster image
     poster_html = "-"

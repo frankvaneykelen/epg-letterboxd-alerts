@@ -353,6 +353,10 @@ def list_non_films():
     programmes.sort(key=lambda x: x['start_time'] or datetime(9999, 12, 31))
     non_film_count = len(programmes)
     
+    # TEMPORARY: Limit to first x movies for testing
+    # programmes = programmes[:25]
+    # logger.info(f"⚠️ TESTING MODE: Limited to first {len(programmes)} series")
+        
     print()  # New line after progress
     print(f"Found {non_film_count} new series across {len(set(p['channel'] for p in programmes))} channels")
     
@@ -363,7 +367,7 @@ def list_non_films():
     html_lines.append('<head>')
     html_lines.append('    <meta charset="UTF-8">')
     html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    html_lines.append('    <title>Series Premieres</title>')
+    html_lines.append('    <title>Series Premieres - Curated for @stereoparty</title>')
     html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
     html_lines.append('    <style>')
     html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
@@ -609,7 +613,7 @@ def _build_nav_menu(active_page):
     nav_html = []
     nav_html.append('        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">')
     nav_html.append('            <div class="container-fluid">')
-    nav_html.append('                <span class="navbar-brand">Series Premieres</span>')
+    nav_html.append('                <span class="navbar-brand">Series Premieres - Curated for <a href="https://letterboxd.com/stereoparty">@stereoparty</a></span>')
     nav_html.append('                <div class="navbar-nav">')
     
     for page, label in pages:
@@ -644,7 +648,7 @@ def _generate_by_channel_view(programmes, icon_map, timestamp):
     html_lines.append('<head>')
     html_lines.append('    <meta charset="UTF-8">')
     html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    html_lines.append('    <title>Series Premieres - By Channel</title>')
+    html_lines.append('    <title>Series Premieres - Curated for @stereoparty - By Channel</title>')
     html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
     html_lines.append('    <style>')
     html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
@@ -717,7 +721,7 @@ def _generate_by_genre_view(programmes, icon_map, timestamp):
     html_lines.append('<head>')
     html_lines.append('    <meta charset="UTF-8">')
     html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    html_lines.append('    <title>Series Premieres - By Genre</title>')
+    html_lines.append('    <title>Series Premieres - Curated for @stereoparty - By Genre</title>')
     html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
     html_lines.append('    <style>')
     html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
