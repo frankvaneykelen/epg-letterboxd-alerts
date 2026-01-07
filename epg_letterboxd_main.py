@@ -738,7 +738,7 @@ def _generate_films_by_genre_view(suggestions, timestamp):
     
     # Generate a table for each genre
     for genre in sorted_genres:
-        films = by_genre[genre]
+        films = sorted(by_genre[genre], key=lambda s: s['broadcast'].title.lower())
         html_lines.append(f'        <div class="genre-section">')
         html_lines.append(f'            <h2>{genre} ({len(films)})</h2>')
         html_lines.append('            <div class="table-responsive">')

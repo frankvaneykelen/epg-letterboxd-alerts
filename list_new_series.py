@@ -739,7 +739,7 @@ def _generate_by_genre_view(programmes, icon_map, timestamp):
     
     # Generate a table for each genre
     for genre in sorted_genres:
-        progs = by_genre[genre]
+        progs = sorted(by_genre[genre], key=lambda p: p['title'].lower())
         html_lines.append(f'        <div class="genre-section">')
         html_lines.append(f'            <h2>{genre} ({len(progs)})</h2>')
         html_lines.append('            <div class="table-responsive">')
