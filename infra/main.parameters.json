@@ -3,10 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "projectName": {
-      "value": "epg-letterboxd"
-    },
-    "environment": {
-      "value": "prod"
+      "value": "ziggo-epg-letterboxd"
     },
     "location": {
       "value": "westeurope"

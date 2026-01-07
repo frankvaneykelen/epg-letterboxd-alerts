@@ -70,8 +70,9 @@ class LetterboxdCSVLoader:
         success = True
 
         # Load do-not-watchlist (always try to load, even if no path configured)
-        # Note: do-not-watchlistfrom Table Storage
-        self._do_not_watchlist_loader.load_data(
+        # Note: do-not-watchlist from Table Storage
+        self._do_not_watchlist_loader.load_data()
+        
         # Load watchlist (from extracted ZIP in /tmp/ or data/)
         if self.watchlist_path:
             if Path(self.watchlist_path).exists():

@@ -15,7 +15,7 @@ import tempfile
 logger = logging.getLogger(__name__)
 
 # Azure Blob Storage settings
-AZURE_STORAGE_ACCOUNT = "epgletterboxdprod"
+AZURE_STORAGE_ACCOUNT = "ziggoepgletterboxd"
 AZURE_CONTAINER_NAME = "downloads"
 AZURE_BLOB_URL = f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/"
 
@@ -265,5 +265,5 @@ if __name__ == "__main__":
     else:
         print("\n✗ Failed to import Letterboxd data")
         print("  Make sure you have:")
-        print("  1. A letterboxd-*.zip file in Azure Blob Storage (https://epgletterboxdprod.blob.core.windows.net/downloads/), OR")
+        print("  1. A letterboxd-*.zip file in Azure Blob Storage (https://ziggoepgletterboxd.blob.core.windows.net/downloads/), OR")
         print("  2. A letterboxd-*.zip file in your downloads/ folder")

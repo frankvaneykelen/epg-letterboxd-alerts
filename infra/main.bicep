@@ -5,10 +5,7 @@
 param location string = resourceGroup().location
 
 @description('Base name for all resources')
-param projectName string = 'epg-letterboxd'
-
-@description('Environment (dev, staging, prod)')
-param environment string = 'prod'
+param projectName string = 'ziggo-epg-letterboxd'
 
 @description('TMDb API Key')
 @secure()
@@ -18,12 +15,12 @@ param tmdbApiKey string
 param storageSku string = 'Standard_LRS'
 
 // Variables
-var resourceSuffix = '${projectName}-${environment}'
-var dataStorageAccountName = replace('${projectName}${environment}', '-', '') // Storage accounts can't have hyphens
-var funcStorageAccountName = replace('${projectName}${environment}func', '-', '') // Separate storage for Function App
+var resourceSuffix = projectName
+var dataStorageAccountName = replace('${projectName}', '-', '') // Storage accounts can't have hyphens
+var funcStorageAccountName = replace('${projectName}func', '-', '') // Separate storage for Function App
 var functionAppName = '${resourceSuffix}-func'
-var appServicePlanName = '${resourceSuffix}-plan'
-var appInsightsName = '${resourceSuffix}-ai'
+var appServicePlanName = '${resourceSuffix}-asp'
+var appInsightsName = '${resourceSuffix}-appi'
 var containerName = 'downloads'
 
 // Storage Account for Function App infrastructure (no firewall - needed for deployments)
@@ -42,7 +39,6 @@ resource funcStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     // No firewall - allows GitHub Actions to deploy
   }
   tags: {
-    Environment: environment
     Project: projectName
     Purpose: 'Function App Infrastructure'
   }
@@ -62,28 +58,20 @@ resource dataStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
     supportsHttpsTrafficOnly: true
     accessTier: 'Hot'
     // Network rules for IP restrictions on data access
-    // NOTE: Consumption Function Apps don't have static outbound IPs, so they rely on 'AzureServices' bypass
-    // Function App uses Managed Identity (Storage Blob Data Contributor role) to access storage
+    // Temporarily allow all to test - can restrict later once working
     networkAcls: {
-      bypass: 'AzureServices'  // Allows Function App to access despite IP restrictions
-      defaultAction: 'Deny'
-      ipRules: [
-        { value: '213.73.141.240' } // K202
-        // Add more IPs here:
-        // { value: '1.2.3.4' }
-        // { value: '10.0.0.0/24' }
-      ]
+      bypass: 'AzureServices'
+      defaultAction: 'Allow'  // Allow all access for now (protected by RBAC roles)
     }
   }
   tags: {
-    Environment: environment
     Project: projectName
-    Purpose: 'Data Storage (Letterboxd, HTML)'
+    Purpose: 'Data Storage (Letterboxd, HTML via $web container)'
   }
 }
 
-// Note: Static website configuration requires Azure CLI or Portal
-// Run after deployment: az storage blob service-properties update --account-name epgletterboxdprod --static-website --index-document index.html
+// Note: Static website hosting must be enabled via Azure CLI (not yet supported in Bicep/ARM)
+// This is documented in the deployment README and Copilot instructions
 
 // Blob Service for data storage account
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
@@ -117,6 +105,15 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
   }
 }
 
+// $web container for static website hosting (automatically created when accessing with static website enabled)
+resource webContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobService
+  name: '$web'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
 // Container for Letterboxd ZIP files
 resource letterboxdContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
   parent: blobService
@@ -126,14 +123,8 @@ resource letterboxdContainer 'Microsoft.Storage/storageAccounts/blobServices/con
   }
 }
 
-// Container for HTML files (wwwroot)
-resource wwwrootContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
-  parent: blobService
-  name: 'wwwroot'
-  properties: {
-    publicAccess: 'None'  // Access controlled by storage firewall
-  }
-}
+// Note: HTML files are served from the $web container, which is automatically created when static website hosting is enabled
+// Run after deployment: az storage blob service-properties update --account-name ziggoepgletterboxd --static-website --index-document index.html
 
 // Table Service for data storage account
 resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-01-01' = {
@@ -163,7 +154,6 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
     Request_Source: 'rest'
   }
   tags: {
-    Environment: environment
     Project: projectName
   }
 }
@@ -181,7 +171,6 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
     reserved: true
   }
   tags: {
-    Environment: environment
     Project: projectName
   }
 }
@@ -199,15 +188,22 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     reserved: true
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'Python|3.11'
+      linuxFxVersion: 'Python|3.12'
+      cors: {
+        allowedOrigins: [
+          'https://portal.azure.com'
+          'https://ms.portal.azure.com'
+        ]
+        supportCredentials: false
+      }
       appSettings: [
         {
           name: 'AzureWebJobsStorage'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${funcStorageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${funcStorageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'WEBSITE_CONTENTSHARE'
@@ -257,7 +253,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
     }
   }
   tags: {
-    Environment: environment
     Project: projectName
     ManagedBy: 'Bicep'
   }
@@ -304,4 +299,4 @@ output funcStorageAccountName string = funcStorageAccount.name
 output containerName string = containerName
 output functionAppPrincipalId string = functionApp.identity.principalId
 output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
-output staticWebsiteUrl string = 'https://${dataStorageAccount.name}.z6.web.core.windows.net/'
+output staticWebsiteUrl string = 'https://${dataStorageAccount.name}.z6.web.${az.environment().suffixes.storage}/'

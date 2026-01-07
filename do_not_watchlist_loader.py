@@ -26,7 +26,7 @@ def is_azure_environment():
 class DoNotWatchListLoader:
     """Loads do-not-watch films from Azure Table Storage or local CSV."""
 
-    def __init__(self, storage_account_name: str = "epgletterboxdprod", table_name: str = "DoNotWatchListFilms", csv_path: str = "data/do-not-watchlist.csv"):
+    def __init__(self, storage_account_name: str = "ziggoepgletterboxd", table_name: str = "DoNotWatchListFilms", csv_path: str = "data/do-not-watchlist.csv"):
         """
         Initialize loader.
 
@@ -41,7 +41,9 @@ class DoNotWatchListLoader:
         self._do_not_watchlist_films: Set[tuple] = set()
         self._loaded = False
 
-    def load_data(self) -> bool: or local CSV.
+    def load_data(self) -> bool:
+        """
+        Load do-not-watchlist from Table Storage or local CSV.
         
         In Azure: loads from Table Storage
         Locally: loads from CSV file
@@ -120,14 +122,12 @@ class DoNotWatchListLoader:
             return True
 
         except Exception as e:
-            logger.error(f"Error loading do-not-watchlist CSV
-        except Exception as e:
-            logger.error(f"Error loading do-not-watchlist from Table Storage: {e}")
+            logger.error(f"Error loading do-not-watchlist CSV: {e}")
             return False
 
     def is_on_do_not_watchlist(self, tmdb_title: str, tmdb_year: int) -> bool:
         """
-        Check if a film is on the do-not-watchlist by title and year (±1 year tolerance).
+        Check if a film is on the do-not-watchlist by title and year (+/- 1 year tolerance).
 
         Args:
             tmdb_title: TMDb movie title

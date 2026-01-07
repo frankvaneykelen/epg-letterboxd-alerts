@@ -71,7 +71,7 @@ def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", 
                 from azure.storage.blob import BlobClient
                 from azure.identity import DefaultAzureCredential
                 
-                storage_account = "epgletterboxdprod"
+                storage_account = "ziggoepgletterboxd"
                 account_url = f"https://{storage_account}.blob.core.windows.net"
                 
                 blob_client = BlobClient(

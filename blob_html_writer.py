@@ -25,7 +25,7 @@ def upload_html_to_blob(html_content: str, blob_name: str, container_name: str =
         from azure.storage.blob import BlobClient
         from azure.identity import DefaultAzureCredential
         
-        storage_account = "epgletterboxdprod"
+        storage_account = "ziggoepgletterboxd"
         account_url = f"https://{storage_account}.blob.core.windows.net"
         
         # Create blob client with Managed Identity
@@ -69,7 +69,7 @@ def download_html_from_blob(blob_name: str, container_name: str = "$web") -> Opt
         from azure.storage.blob import BlobClient
         from azure.identity import DefaultAzureCredential
         
-        storage_account = "epgletterboxdprod"
+        storage_account = "ziggoepgletterboxd"
         account_url = f"https://{storage_account}.blob.core.windows.net"
         
         # Create blob client with Managed Identity

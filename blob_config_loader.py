@@ -10,7 +10,7 @@ import tempfile
 logger = logging.getLogger(__name__)
 
 # Azure Blob Storage settings
-AZURE_STORAGE_ACCOUNT = "epgletterboxdprod"
+AZURE_STORAGE_ACCOUNT = "ziggoepgletterboxd"
 AZURE_CONTAINER_NAME = "data"
 AZURE_BLOB_URL = f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net/{AZURE_CONTAINER_NAME}/"
 

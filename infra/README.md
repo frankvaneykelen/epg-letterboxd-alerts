@@ -21,70 +21,40 @@ This folder contains the Infrastructure as Code (IaC) for deploying the EPG Lett
 ### 1. Create Resource Group
 
 ```bash
-az group create \
-  --name rg-epg-letterboxd-prod \
-  --location westeurope
+az group create --name ziggo-epg-letterboxd-rg --location westeurope
 ```
 
 ### 2. Deploy Infrastructure
 
-**Option A: Using parameters file**
-
 Edit `main.parameters.json` with your TMDb API key, then deploy:
 
 ```bash
-az deployment group create \
-  --resource-group rg-epg-letterboxd-prod \
-  --template-file infra/main.bicep \
-  --parameters infra/main.parameters.json \
-  --parameters tmdbApiKey=YOUR_TMDB_API_KEY
+az deployment group create --resource-group ziggo-epg-letterboxd-rg --template-file infra/main.bicep --parameters infra/main.parameters.json --parameters tmdbApiKey=YOUR_TMDB_API_KEY
 ```
 
-**Option B: Inline parameters**
-
-```bash
-az deployment group create \
-  --resource-group rg-epg-letterboxd-prod \
-  --template-file infra/main.bicep \
-  --parameters projectName=epg-letterboxd \
-               environment=prod \
-               location=westeurope \
-               tmdbApiKey=YOUR_TMDB_API_KEY
-```
 
 ### 3. Upload Letterboxd ZIP
 
 After deployment, upload your Letterboxd export ZIP to the blob storage:
 
-```bash
+```ps
 # Get storage account name from deployment output
-STORAGE_ACCOUNT=$(az deployment group show \
-  --resource-group rg-epg-letterboxd-prod \
-  --name main \
-  --query properties.outputs.storageAccountName.value -o tsv)
+$STORAGE_ACCOUNT=$(az deployment group show --resource-group ziggo-epg-letterboxd-rg --name main --query properties.outputs.dataStorageAccountName.value -o tsv)
 
 # Upload ZIP file
-az storage blob upload \
-  --account-name $STORAGE_ACCOUNT \
-  --container-name downloads \
-  --name letterboxd-stereoparty-2026-01-03-18-26-utc.zip \
-  --file ~/Downloads/letterboxd-stereoparty-2026-01-03-18-26-utc.zip \
-  --auth-mode login
+az storage blob upload --account-name $STORAGE_ACCOUNT --container-name downloads --name letterboxd-stereoparty-2026-01-03-18-26-utc.zip --file ~/Downloads/letterboxd-stereoparty-2026-01-03-18-26-utc.zip --auth-mode login
 ```
 
 ### 4. Deploy Function Code
 
 Use GitHub Actions (see `.github/workflows/deploy.yml`) or deploy manually:
 
-```bash
+```ps
 # Get function app name
-FUNCTION_APP=$(az deployment group show \
-  --resource-group rg-epg-letterboxd-prod \
-  --name main \
-  --query properties.outputs.functionAppName.value -o tsv)
+$FUNCTION_APP=$(az deployment group show --resource-group ziggo-epg-letterboxd-rg --name main --query properties.outputs.functionAppName.value -o tsv)
 
 # Deploy using Azure Functions Core Tools
-func azure functionapp publish $FUNCTION_APP
+func azure functionapp publish $FUNCTION_APP --python --build remote
 ```
 
 Or set up GitHub Actions with these secrets:
@@ -96,14 +66,14 @@ Or set up GitHub Actions with these secrets:
 ### Update TMDb API Key
 
 ```bash
-az functionapp config appsettings set --resource-group rg-epg-letterboxd-prod --name epg-letterboxd-prod-func --settings "TMDB_API_KEY=your_new_key"
+az functionapp config appsettings set --resource-group ziggo-epg-letterboxd-rg --name epg-letterboxd-prod-func --settings "TMDB_API_KEY=your_new_key"
 ```
 
 ### View Logs
 
 ```bash
 az functionapp log tail \
-  --resource-group rg-epg-letterboxd-prod \
+  --resource-group ziggo-epg-letterboxd-rg \
   --name epg-letterboxd-prod-func
 ```
 
@@ -112,7 +82,7 @@ Or use Application Insights in Azure Portal.
 ## Cleanup
 
 ```bash
-az group delete --name rg-epg-letterboxd-prod --yes --no-wait
+az group delete --name ziggo-epg-letterboxd-rg --yes --no-wait
 ```
 
 ## Parameters Reference

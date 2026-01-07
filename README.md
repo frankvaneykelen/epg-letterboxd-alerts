@@ -107,8 +107,8 @@ az role assignment create `
 
 Replace:
 - `<subscription-id>`: Your Azure subscription ID
-- `<resource-group>`: Resource group name (e.g., `rg-epg-letterboxd-prod`)
-- `<storage-account-name>`: Storage account name (e.g., `epgletterboxdprod`)
+- `<resource-group>`: Resource group name (e.g., `ziggo-epg-letterboxd-rg`)
+- `<storage-account-name>`: Storage account name (e.g., `ziggoepgletterboxd`)
 
 This allows the script to download Letterboxd exports from Azure Blob Storage when running locally. Without this role, it will log an `AuthorizationPermissionMismatch` warning and fall back to the local `downloads/` folder.
 
@@ -252,11 +252,11 @@ Deploy the complete Azure infrastructure using Bicep:
 
 ```bash
 # Create resource group
-az group create --name rg-epg-letterboxd-prod --location westeurope
+az group create --name ziggo-epg-letterboxd-rg --location westeurope
 
 # Deploy infrastructure
 az deployment group create \
-  --resource-group rg-epg-letterboxd-prod \
+  --resource-group ziggo-epg-letterboxd-rg \
   --template-file infra/main.bicep \
   --parameters infra/main.parameters.json \
   --parameters tmdbApiKey=YOUR_TMDB_API_KEY

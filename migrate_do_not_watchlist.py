@@ -10,7 +10,7 @@ from azure.data.tables import TableServiceClient
 from azure.identity import DefaultAzureCredential
 
 # Configuration
-STORAGE_ACCOUNT_NAME = "epgletterboxdprod"
+STORAGE_ACCOUNT_NAME = "ziggoepgletterboxd"
 TABLE_NAME = "DoNotWatchListFilms"
 CSV_PATH = "data/do-not-watchlist.csv"
 

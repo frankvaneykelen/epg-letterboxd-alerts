@@ -26,7 +26,7 @@ def is_azure_environment():
 class DoNotWatchSeriesLoader:
     """Loads do-not-watch series from Azure Table Storage or local CSV."""
 
-    def __init__(self, storage_account_name: str = "epgletterboxdprod", table_name: str = "DoNotWatchListSeries", csv_path: str = "data/do-not-watch-series.csv"):
+    def __init__(self, storage_account_name: str = "ziggoepgletterboxd", table_name: str = "DoNotWatchListSeries", csv_path: str = "data/do-not-watch-series.csv"):
         """
         Initialize loader.
 
@@ -41,7 +41,9 @@ class DoNotWatchSeriesLoader:
         self._do_not_watch_series: Set[str] = set()
         self._loaded = False
 
-    def load_data(self) -> bool: or local CSV.
+    def load_data(self) -> bool:
+        """
+        Load do-not-watch series from Table Storage or local CSV.
         
         In Azure: loads from Table Storage
         Locally: loads from CSV file
@@ -112,9 +114,7 @@ class DoNotWatchSeriesLoader:
             return True
 
         except Exception as e:
-            logger.error(f"Error loading do-not-watch series CSV
-        except Exception as e:
-            logger.error(f"Error loading do-not-watch series from Table Storage: {e}")
+            logger.error(f"Error loading do-not-watch series CSV: {e}")
             return False
 
     def is_on_do_not_watch_list(self, title: str) -> bool:

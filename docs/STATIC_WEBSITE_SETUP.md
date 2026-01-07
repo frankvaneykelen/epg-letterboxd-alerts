@@ -23,7 +23,7 @@ ipRules: [
 ```powershell
 cd infra
 az deployment group create `
-  --resource-group rg-epg-letterboxd-prod `
+  --resource-group ziggo-epg-letterboxd-rg `
   --template-file main.bicep `
   --parameters main.parameters.json `
   --parameters tmdbApiKey=YOUR_TMDB_API_KEY
@@ -35,7 +35,7 @@ After Bicep deployment, run:
 
 ```powershell
 az storage blob service-properties update `
-  --account-name epgletterboxdprod `
+  --account-name ziggoepgletterboxd `
   --static-website `
   --index-document index.html `
   --404-document index.html
@@ -59,8 +59,8 @@ def upload_html_to_blob(html_content: str, blob_name: str, container_name: str =
 
 After setup, your HTML files will be accessible at:
 
-- Films: `https://epgletterboxdprod.z6.web.core.windows.net/index.html`
-- Series: `https://epgletterboxdprod.z6.web.core.windows.net/new-series.html`
+- Films: `https://ziggoepgletterboxd.z6.web.core.windows.net/index.html`
+- Series: `https://ziggoepgletterboxd.z6.web.core.windows.net/new-series.html`
 
 (The exact URL will be shown when you enable static website)
 

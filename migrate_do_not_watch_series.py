@@ -11,7 +11,7 @@ from azure.data.tables import TableServiceClient
 from azure.identity import DefaultAzureCredential
 
 # Configuration
-STORAGE_ACCOUNT_NAME = "epgletterboxdprod"
+STORAGE_ACCOUNT_NAME = "ziggoepgletterboxd"
 TABLE_NAME = "DoNotWatchListSeries"
 CSV_PATH = "data/do-not-watch-series.csv"
 

@@ -4,8 +4,9 @@ This file is used when deploying to Azure Functions.
 """
 
 import azure.functions as func
-from epg_letterboxd_main import main
-from list_new_series import list_non_films
+# Lazy import to avoid loading all dependencies at module level
+# from epg_letterboxd_main import main
+# from list_new_series import list_non_films
 from pathlib import Path
 from blob_html_writer import download_html_from_blob
 
@@ -18,6 +19,8 @@ def epg_letterboxd_alerts_timer(films_timer: func.TimerRequest) -> None:
     TimerTrigger function for EPG-Letterboxd Films Alerts.
     Runs every 6 hours at :00 (0:00, 6:00, 12:00, 18:00).
     """
+    # Lazy import to avoid module-level dependency loading
+    from epg_letterboxd_main import main
     main(films_timer)
 
 
@@ -27,6 +30,8 @@ def epg_letterboxd_series_timer(series_timer: func.TimerRequest) -> None:
     TimerTrigger function for EPG-Letterboxd Series Alerts.
     Runs 1 hour after films timer (1:00, 7:00, 13:00, 19:00).
     """
+    # Lazy import to avoid module-level dependency loading
+    from list_new_series import list_non_films
     list_non_films()
 
 

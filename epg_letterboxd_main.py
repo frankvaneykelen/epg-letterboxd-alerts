@@ -23,8 +23,14 @@ except ImportError as e:
         "Missing required Azure dependencies. Install with: pip install azure-storage-blob azure-identity"
     ) from e
 
-# Load environment variables from .env file (for local development)
-load_dotenv()
+# Load environment variables from .env file (for local development only)
+# Skip in Azure Functions environment to avoid __main__ import error
+try:
+    if not os.getenv('FUNCTIONS_WORKER_RUNTIME'):
+        load_dotenv()
+except Exception:
+    # Silently skip if load_dotenv fails (happens in Azure Functions)
+    pass
 
 from epg_parser import EPGParser
 from tmdb_client import TMDbClient
@@ -201,15 +207,22 @@ def main(mytimer: func.TimerRequest) -> None:
     Args:
         mytimer: TimerRequest object from Azure Functions runtime
     """
-    utc_timestamp = datetime.utcnow().replace(microsecond=0).isoformat()
-    logger.info(f"epg-letterboxd-alerts function triggered at {utc_timestamp}")
+    try:
+        utc_timestamp = datetime.utcnow().replace(microsecond=0).isoformat()
+        logger.info(f"epg-letterboxd-alerts function triggered at {utc_timestamp}")
 
-    if mytimer.past_due:
-        logger.warning("Function is running late!")
+        if mytimer.past_due:
+            logger.warning("Function is running late!")
+    except Exception as e:
+        logger.error(f"Error in function preamble: {e}", exc_info=True)
+        raise
 
     try:
         # Load configuration
         config_path = os.path.join(os.path.dirname(__file__), "config.json")
+        logger.info(f"Loading config from: {config_path}")
+        logger.info(f"Current directory: {os.getcwd()}")
+        logger.info(f"__file__ is: {__file__}")
         config = load_config(config_path)
 
         # Initialize clients
