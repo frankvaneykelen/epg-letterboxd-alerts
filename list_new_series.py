@@ -156,18 +156,19 @@ def list_non_films():
         logger.error(f"EPG update failed: {e}", exc_info=True)
         logger.warning("Continuing with existing data...")
     
-    # Load config for TMDb API key
+    # Load config for TMDb API key and country filter
     config_path = Path("config.json")
     api_key = None
-    allowed_countries = None
+    allowed_countries = []  # Empty list means no filtering (all countries allowed)
     if config_path.exists():
         import json
         with open(config_path) as f:
             config = json.load(f)
             api_key = os.getenv("TMDB_API_KEY") or config.get("tmdb", {}).get("api_key")
             # Load country filter from config
-            allowed_countries = config.get("filters", {}).get("countries", None)
-            if allowed_countries:
+            countries_config = config.get("filters", {}).get("countries", None)
+            if countries_config:
+                allowed_countries = countries_config
                 logger.info(f"Country filter enabled: {allowed_countries}")
     else:
         api_key = os.getenv("TMDB_API_KEY")
@@ -223,6 +224,16 @@ def list_non_films():
         
         # Filter by allowed channels early (if channel filter is loaded)
         if allowed_channels and channel not in allowed_channels:
+            continue
+        
+        # Get country early for filtering
+        country_elem = programme.find('country')
+        country = country_elem.text if country_elem is not None and country_elem.text else "-"
+        
+        # Filter by allowed countries (if configured)
+        # Note: Series without country data (country == "-") are always included to avoid
+        # filtering out older EPG data that may not have country information
+        if allowed_countries and country != "-" and country not in allowed_countries:
             continue
         
         # Get categories
@@ -300,17 +311,7 @@ def list_non_films():
             actor_elems = credits_elem.findall('actor')
             actors = [a.text for a in actor_elems if a.text][:3]  # Limit to 3
         
-        # Get country
-        country_elem = programme.find('country')
-        country = country_elem.text if country_elem is not None and country_elem.text else "-"
-        
-        # Filter by allowed countries (if configured)
-        # Note: Series without country data (country == "-") are always included to avoid
-        # filtering out older EPG data that may not have country information
-        if allowed_countries and country != "-":
-            if country not in allowed_countries:
-                logger.debug(f"  Skipping '{title}' - country '{country}' not in allowed list {allowed_countries}")
-                continue
+        # Note: Country was already extracted earlier for filtering
         
         # Get start time
         start_str = programme.get('start', '')
