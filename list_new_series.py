@@ -20,8 +20,12 @@ from blob_config_loader import download_config_file
 from blob_html_writer import upload_html_to_blob
 from do_not_watch_series_loader import DoNotWatchSeriesLoader
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (only for local development)
+try:
+    load_dotenv()
+except ModuleNotFoundError:
+    # Azure Functions environment doesn't support __main__ import
+    pass
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
