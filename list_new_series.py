@@ -268,8 +268,8 @@ def list_non_films():
                 year = int(date)
                 if year not in range(current_year - 4, current_year + 1):
                     continue
-                    except ValueError:
-                        continue  # Skip if date is not a valid year
+            except ValueError:
+                continue  # Skip if date is not a valid year
         
         # Get episode-num
         episode_elem = programme.find('episode-num')
