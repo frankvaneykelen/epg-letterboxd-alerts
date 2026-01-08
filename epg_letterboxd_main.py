@@ -662,6 +662,34 @@ def _build_film_table(suggestions):
     table_html.append('</table>')
     return '\n'.join(table_html)
 
+def _build_film_table(suggestions):
+    """Build HTML table for a list of film suggestions."""
+    table_html = []
+    table_html.append('<table class="table table-striped table-bordered align-middle">')
+    table_html.append('    <thead>')
+    table_html.append('        <tr>')
+    table_html.append('            <th>Title</th>')
+    table_html.append('            <th>Poster</th>')
+    table_html.append('            <th>Subtitle/Description</th>')
+    table_html.append('            <th>Rating</th>')
+    table_html.append('            <th>LB</th>')
+    table_html.append('            <th>Year</th>')
+    table_html.append('            <th>Genre</th>')
+    table_html.append('            <th>Country</th>')
+    table_html.append('            <th>Director</th>')
+    table_html.append('            <th>Actors</th>')
+    table_html.append('            <th>Channel</th>')
+    table_html.append('            <th>Date</th>')
+    table_html.append('            <th>Time</th>')
+    table_html.append('        </tr>')
+    table_html.append('    </thead>')
+    table_html.append('    <tbody>')
+    for suggestion in suggestions:
+        table_html.append(_build_film_table_row(suggestion))
+    table_html.append('    </tbody>')
+    table_html.append('</table>')
+    return '\n'.join(table_html)
+
 def _generate_films_alphabetical_view(suggestions, timestamp):
     """Generate HTML view sorted alphabetically by title."""
     # Sort suggestions by title (case-insensitive)
