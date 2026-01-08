@@ -97,7 +97,7 @@ class DoNotWatchListLoader:
                         except ValueError:
                             logger.warning(f"Invalid year in RowKey: {row_key}")
             
-            logger.info(f"Loaded {count} films from do-not-watchlist table")
+            logger.info(f"Loaded {count} films from DoNotWatchListFilms table")
             return True
 
         except Exception as e:
