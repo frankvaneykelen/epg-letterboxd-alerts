@@ -101,15 +101,14 @@ class SkipCategoriesLoader:
     
     def should_skip(self, categories: list[str]) -> bool:
         """
-        Check if any of the given categories should be skipped.
-        
+        Check if any of the given categories should be skipped (case-insensitive).
         Args:
             categories: List of category names to check
-            
         Returns:
-            True if any category matches skip list
+            True if any category matches skip list (case-insensitive)
         """
-        return any(cat in self._skip_categories for cat in categories)
+        skip_set_lower = {cat.lower() for cat in self._skip_categories}
+        return any(cat.lower() in skip_set_lower for cat in categories)
     
     def get_categories(self) -> Set[str]:
         """Get the set of skip categories."""

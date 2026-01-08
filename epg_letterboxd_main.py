@@ -639,10 +639,14 @@ def _build_film_table_row(suggestion):
     broadcast = suggestion['broadcast']
     title = broadcast.title
     year = broadcast.date if hasattr(broadcast, 'date') else "-"
-    title_html = title
+    
+    # Build title link to Ziggo EPG search
+    from urllib.parse import quote
+    search_url = f"https://www.ziggogo.tv/nl/epg/initial/search/{quote(title)}%20"
+    title_html = f'<a href="{search_url}" target="ziggogo">{title}</a>'
+    
     tmdb_title = broadcast.title
     tmdb_year = year if year != "-" else ""
-    from urllib.parse import quote
     lb_search_parts = [quote(p, safe='') for p in [tmdb_title, tmdb_year] if p]
     lb_search_query = "+".join(lb_search_parts)
     lb_search_url = f"https://letterboxd.com/search/films/{lb_search_query}/?adult"
@@ -883,10 +887,19 @@ def _generate_films_by_channel_view(suggestions, timestamp):
     html_lines.append(_build_film_nav_menu('index-per-channel.html'))
     html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(suggestions)} films across {len(sorted_channels)} channels</p>')
     
+    # Add Table of Contents
+    html_lines.append('        <div class="mb-4">')
+    html_lines.append('            <h5>Channels:</h5>')
+    html_lines.append('            <p>')
+    toc_links = [f'<a href="#channel-{i}">{channel}</a>' for i, channel in enumerate(sorted_channels)]
+    html_lines.append('                ' + ' | '.join(toc_links))
+    html_lines.append('            </p>')
+    html_lines.append('        </div>')
+    
     # Generate a table for each channel
-    for channel in sorted_channels:
+    for i, channel in enumerate(sorted_channels):
         films = by_channel[channel]
-        html_lines.append(f'        <div class="channel-section">')
+        html_lines.append(f'        <div class="channel-section" id="channel-{i}">')
         html_lines.append(f'            <h2>{channel} ({len(films)})</h2>')
         html_lines.append('            <div class="table-responsive">')
         html_lines.append(_build_film_table(films))
@@ -937,12 +950,16 @@ def _generate_films_by_genre_view(suggestions, timestamp):
     """Generate index-per-genre.html grouped by genre."""
     from collections import defaultdict
     
-    # Group suggestions by first genre
+    # Group suggestions by genre (skip "Film" category, use second category)
     by_genre = defaultdict(list)
     for suggestion in suggestions:
         genre = "-"
-        if suggestion['broadcast'].categories:
-            genre = suggestion['broadcast'].categories[0]
+        categories = suggestion['broadcast'].categories
+        # Find first non-Film category
+        for cat in categories:
+            if cat.lower() != "film":
+                genre = cat
+                break
         by_genre[genre].append(suggestion)
     
     # Sort genres A-Z
@@ -971,10 +988,19 @@ def _generate_films_by_genre_view(suggestions, timestamp):
     html_lines.append(_build_film_nav_menu('index-per-genre.html'))
     html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(suggestions)} films across {len(sorted_genres)} genres</p>')
     
+    # Add Table of Contents
+    html_lines.append('        <div class="mb-4">')
+    html_lines.append('            <h5>Genres:</h5>')
+    html_lines.append('            <p>')
+    toc_links = [f'<a href="#genre-{i}">{genre}</a>' for i, genre in enumerate(sorted_genres)]
+    html_lines.append('                ' + ' | '.join(toc_links))
+    html_lines.append('            </p>')
+    html_lines.append('        </div>')
+    
     # Generate a table for each genre
-    for genre in sorted_genres:
+    for i, genre in enumerate(sorted_genres):
         films = by_genre[genre]
-        html_lines.append(f'        <div class="genre-section">')
+        html_lines.append(f'        <div class="genre-section" id="genre-{i}">')
         html_lines.append(f'            <h2>{genre} ({len(films)})</h2>')
         html_lines.append('            <div class="table-responsive">')
         html_lines.append(_build_film_table(films))

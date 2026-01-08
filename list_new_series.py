@@ -20,6 +20,7 @@ from blob_config_loader import download_config_file
 from blob_html_writer import upload_html_to_blob
 from do_not_watch_series_loader import DoNotWatchSeriesLoader
 from skip_categories_loader import SkipCategoriesLoader
+from tmdb_client import TMDbClient
 
 # Load environment variables from .env file (only for local development)
 try:
@@ -30,91 +31,6 @@ except ModuleNotFoundError:
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
-
-def search_tv_series(title: str, year: int = None, api_key: str = None, country: str = None, director: str = None, actors: list = None):
-    """Search TMDb for TV series with metadata verification."""
-    if not api_key:
-        return None
-    
-    try:
-        params = {
-            "api_key": api_key,
-            "query": title,
-        }
-        if year:
-            params["first_air_date_year"] = year
-        
-        url = "https://api.themoviedb.org/3/search/tv"
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        
-        results = response.json().get("results", [])
-        
-        if not results:
-            return None
-        
-        # Log search results for debugging
-        logger.info(f"TMDb search for '{title}' ({year}): found {len(results)} results")
-        for i, result in enumerate(results[:3]):  # Log first 3 results
-            result_year = result.get('first_air_date', '')[:4] if result.get('first_air_date') else 'N/A'
-            logger.info(f"  [{i+1}] {result.get('name')} ({result_year}) - ID: {result.get('id')}")
-        
-        # Try to find best match
-        best_match = None
-        best_score = 0
-        
-        for result in results[:5]:  # Check top 5 results
-            score = 0
-            result_year = result.get('first_air_date', '')[:4]
-            
-            # Year match (exact or ±1 year)
-            if year and result_year:
-                try:
-                    result_year_int = int(result_year)
-                    if result_year_int == year:
-                        score += 10  # Exact year match
-                    elif abs(result_year_int - year) == 1:
-                        score += 5  # Close year match
-                except ValueError:
-                    pass
-            
-            # Recency bonus (prefer newer shows when scores are tied)
-            if result_year:
-                try:
-                    result_year_int = int(result_year)
-                    if result_year_int >= 2020:
-                        score += (result_year_int - 2020) * 0.2
-                except ValueError:
-                    pass
-            
-            # Country match
-            if country and result.get('origin_country'):
-                origin_countries = result.get('origin_country', [])
-                if country in origin_countries:
-                    score += 5
-                    logger.info(f"  Country match for '{result.get('name')}': {country} in {origin_countries}")
-            
-            # Title similarity (exact match gets bonus)
-            if result.get('name', '').lower() == title.lower():
-                score += 3
-            
-            # First result gets slight preference
-            if result == results[0]:
-                score += 1
-            
-            logger.debug(f"  Score for '{result.get('name')}' ({result_year}): {score}")
-            
-            if score > best_score:
-                best_score = score
-                best_match = result
-        
-        if best_match:
-            logger.info(f"  Selected: {best_match.get('name')} ({best_match.get('first_air_date', '')[:4]}) with score {best_score}")
-        
-        return best_match
-    except Exception as e:
-        logger.error(f"TMDb TV search failed for '{title}': {e}")
-        return None
 
 def list_non_films():
     """Parse ziggogo.xml and list all programmes without Film category."""
@@ -143,29 +59,39 @@ def list_non_films():
     else:
         xml_output_path = "data/ziggogo-series.xml"
     
-    # Fetch/update EPG data from Ziggo first
+    # Fetch/update EPG data from Ziggo first (skip if recent)
     try:
-        logger.info("Fetching series EPG data from Ziggo...")
-        fetch_epg.fetch_epg(
-            channel_file="data/channels-series.txt",
-            output_file=xml_output_path,
-            scan_days=7  # 7 days for series (fewer programmes to fetch)
-        )
-        logger.info("Series EPG fetch completed successfully")
+        xml_path = Path(xml_output_path)
+        xml_age_hours = 999  # Default to very old if file doesn't exist
+        
+        if xml_path.exists():
+            xml_age_hours = (datetime.now().timestamp() - xml_path.stat().st_mtime) / 3600
+            logger.info(f"Existing EPG XML is {xml_age_hours:.1f} hours old")
+        
+        if xml_age_hours < 1.0:
+            logger.info("EPG XML is recent (< 1 hour), skipping fetch to save time")
+        else:
+            logger.info("Fetching series EPG data from Ziggo...")
+            fetch_epg.fetch_epg(
+                channel_file="data/channels-series.txt",
+                output_file=xml_output_path,
+                scan_days=7  # 7 days for series (fewer programmes to fetch)
+            )
+            logger.info("Series EPG fetch completed successfully")
     except Exception as e:
         logger.error(f"EPG update failed: {e}", exc_info=True)
         logger.warning("Continuing with existing data...")
     
-    # Load config for TMDb API key
+    # Load config and initialize TMDb client
     config_path = Path("config.json")
-    api_key = None
+    config = {}
     if config_path.exists():
         import json
         with open(config_path) as f:
             config = json.load(f)
-            api_key = os.getenv("TMDB_API_KEY") or config.get("tmdb", {}).get("api_key")
-    else:
-        api_key = os.getenv("TMDB_API_KEY")
+    
+    # Initialize TMDb client (with caching)
+    tmdb_client = TMDbClient(config)
     
     xml_path = Path(xml_output_path)
     if not xml_path.exists():
@@ -209,9 +135,15 @@ def list_non_films():
     
     # Get total count for progress display
     all_programmes = root.findall('programme')
+    
+    # TEMPORARY: Limit to first x movies for testing
+    # all_programmes = all_programmes[:25]
+    # logger.info(f"⚠️ TESTING MODE: Limited to first {len(all_programmes)} series")
+    
     total_count = len(all_programmes)
     
     for idx, programme in enumerate(all_programmes, 1):
+        
         # Get channel name first to filter early
         channel_id = programme.get('channel', "")
         channel = channel_map.get(channel_id, channel_id if channel_id else "-")
@@ -220,15 +152,16 @@ def list_non_films():
         if allowed_channels and channel not in allowed_channels:
             continue
         
-        # Get categories (normalize to lowercase)
-        categories = [cat.text.strip().lower() for cat in programme.findall('category') if cat.text]
+        # Get categories (preserve original case for display)
+        categories = [cat.text.strip() for cat in programme.findall('category') if cat.text]
         
-        # Skip if 'film' is in categories
-        if "film" in categories:
+        # Skip if 'film' is in categories (case-insensitive)
+        if any(cat.lower() == "film" for cat in categories):
             continue
         
-        # Skip unwanted categories
-        if skip_categories_loader.should_skip(categories):
+        # Skip unwanted categories (case-insensitive)
+        categories_lower = [cat.lower() for cat in categories]
+        if skip_categories_loader.should_skip(categories_lower):
             continue
         
         # Get title
@@ -240,7 +173,23 @@ def list_non_films():
             logger.info(f"  Skipping '{title}' - on do-not-watch list")
             continue
         
-        print(f"\r[{idx:02d}/{total_count}] {title[:50]:<50}", end='', flush=True)
+        # Get start time for progress display
+        start_str = programme.get('start', '')
+        start_time_display = None
+        if start_str:
+            try:
+                # Format: 20260103200000 +0100
+                start_time_temp = datetime.strptime(start_str[:14], "%Y%m%d%H%M%S")
+                start_time_display = start_time_temp.strftime("%Y-%m-%d")
+            except Exception:
+                pass
+        
+        # Display progress header
+        channel_display = channel if channel != "-" else "Unknown"
+        date_display = f", {start_time_display}" if start_time_display else ""
+        print("=" * 80)
+        print(f"Processing series {idx}/{total_count}: {title} ({channel_display}{date_display})")
+        print("=" * 80)
         
         # Get sub-title
         subtitle_elem = programme.find('sub-title')
@@ -312,17 +261,14 @@ def list_non_films():
         # Format categories
         cat_str = ", ".join(categories) if categories else "-"
         
-        # Try to find TMDb data
+        # Try to find TMDb data using cached client
         tmdb_data = None
         rating = "-"
-        if api_key and date != "-":
+        if date != "-":
             try:
                 year = int(date)
-                # Pass additional metadata for better matching
-                tmdb_data = search_tv_series(title, year, api_key, country, director, actors)
-                if not tmdb_data:
-                    # Try without year
-                    tmdb_data = search_tv_series(title, None, api_key, country, director, actors)
+                # Use TMDbClient with caching
+                tmdb_data = tmdb_client.normalize_tv_series(title, year, country)
                 
                 if tmdb_data:
                     vote_avg = tmdb_data.get("vote_average", 0)
@@ -352,10 +298,6 @@ def list_non_films():
     # Use a far-future date for items without start_time to sort them last
     programmes.sort(key=lambda x: x['start_time'] or datetime(9999, 12, 31))
     non_film_count = len(programmes)
-    
-    # TEMPORARY: Limit to first x movies for testing
-    # programmes = programmes[:25]
-    # logger.info(f"⚠️ TESTING MODE: Limited to first {len(programmes)} series")
         
     print()  # New line after progress
     print(f"Found {non_film_count} new series across {len(set(p['channel'] for p in programmes))} channels")
@@ -427,7 +369,7 @@ def list_non_films():
         
         # Build rating with TMDb link
         if prog['tmdb_data']:
-            tmdb_id = prog['tmdb_data'].get('id')
+            tmdb_id = prog['tmdb_data'].get('tmdb_id') or prog['tmdb_data'].get('id')
             tmdb_url = f"https://www.themoviedb.org/tv/{tmdb_id}"
             rating = f'<a href="{tmdb_url}" target="tmdb">{prog["rating"]}</a>'
         else:
@@ -441,12 +383,12 @@ def list_non_films():
         if prog['categories'] != "-":
             cats = prog['categories'].split(", ")
             for cat in cats:
-                if cat != "Film":
+                if cat.lower() != "film":
                     genre = cat
                     break
         
-        # Bold Dramaseries
-        if genre == "Dramaseries":
+        # Bold Dramaseries (case-insensitive)
+        if genre.lower() == "dramaseries":
             genre = f"<strong>{genre}</strong>"
         
         # Country
@@ -663,25 +605,24 @@ def _generate_alphabetical_view(programmes, icon_map, timestamp):
     html_lines.append(_build_programme_table(sorted_programmes, icon_map))
     html_lines.append('        </div>')
     html_lines.append('    </div>')
+    html_lines.append(_build_poster_modal())
+    html_lines.append('    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>')
+    html_lines.append('    <script>')
+    html_lines.append('        function showPoster(url, title) {')
+    html_lines.append('            document.getElementById("posterModalImage").src = url;')
+    html_lines.append('            document.getElementById("posterModalLabel").textContent = title;')
+    html_lines.append('            new bootstrap.Modal(document.getElementById("posterModal")).show();')
+    html_lines.append('        }')
+    html_lines.append('    </script>')
     html_lines.append('</body>')
     html_lines.append('</html>')
     
     html_content = '\n'.join(html_lines)
     
-    # Write to local file
-    output_path = f"data/new-series-alphabetical.html"
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-    logger.info(f"Generated alphabetical series view: {output_path}")
-    
-    # Upload to blob storage
-    try:
-        from blob_html_writer import BlobHtmlWriter
-        blob_writer = BlobHtmlWriter()
-        blob_writer.write_html('new-series-alphabetical.html', html_content)
-        logger.info("Uploaded alphabetical series view to blob storage")
-    except Exception as e:
-        logger.error(f"Failed to upload alphabetical series view to blob storage: {e}")
+    # Upload and save
+    upload_html_to_blob(html_content, "new-series-alphabetical.html")
+    _save_local_html(html_content, "new-series-alphabetical.html", timestamp)
+    print(f"Generated new-series-alphabetical.html ({len(sorted_programmes)} series)")
 
 
 def _generate_by_channel_view(programmes, icon_map, timestamp):
@@ -719,10 +660,19 @@ def _generate_by_channel_view(programmes, icon_map, timestamp):
     html_lines.append(_build_nav_menu('new-series-per-channel.html'))
     html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(programmes)} series across {len(sorted_channels)} channels</p>')
     
+    # Add Table of Contents
+    html_lines.append('        <div class="mb-4">')
+    html_lines.append('            <h5>Channels:</h5>')
+    html_lines.append('            <p>')
+    toc_links = [f'<a href="#channel-{i}">{channel}</a>' for i, channel in enumerate(sorted_channels)]
+    html_lines.append('                ' + ' | '.join(toc_links))
+    html_lines.append('            </p>')
+    html_lines.append('        </div>')
+    
     # Generate a table for each channel
-    for channel in sorted_channels:
+    for i, channel in enumerate(sorted_channels):
         progs = by_channel[channel]
-        html_lines.append(f'        <div class="channel-section">')
+        html_lines.append(f'        <div class="channel-section" id="channel-{i}">')
         html_lines.append(f'            <h2>{channel} ({len(progs)})</h2>')
         html_lines.append('            <div class="table-responsive">')
         html_lines.append(_build_programme_table(progs, icon_map))
@@ -792,10 +742,19 @@ def _generate_by_genre_view(programmes, icon_map, timestamp):
     html_lines.append(_build_nav_menu('new-series-per-genre.html'))
     html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(programmes)} series across {len(sorted_genres)} genres</p>')
     
+    # Add Table of Contents
+    html_lines.append('        <div class="mb-4">')
+    html_lines.append('            <h5>Genres:</h5>')
+    html_lines.append('            <p>')
+    toc_links = [f'<a href="#genre-{i}">{genre}</a>' for i, genre in enumerate(sorted_genres)]
+    html_lines.append('                ' + ' | '.join(toc_links))
+    html_lines.append('            </p>')
+    html_lines.append('        </div>')
+    
     # Generate a table for each genre
-    for genre in sorted_genres:
+    for i, genre in enumerate(sorted_genres):
         progs = sorted(by_genre[genre], key=lambda p: p['title'].lower())
-        html_lines.append(f'        <div class="genre-section">')
+        html_lines.append(f'        <div class="genre-section" id="genre-{i}">')
         html_lines.append(f'            <h2>{genre} ({len(progs)})</h2>')
         html_lines.append('            <div class="table-responsive">')
         html_lines.append(_build_programme_table(progs, icon_map))

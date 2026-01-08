@@ -77,6 +77,7 @@ class EPGParser:
     def fetch_epg(self) -> str:
         """
         Fetch XMLTV EPG using ziggogo-epg library.
+        Skips fetch if existing XML is less than 1 hour old (useful during development).
 
         Returns:
             Path to generated XMLTV file
@@ -84,6 +85,15 @@ class EPGParser:
         Raises:
             GrabException: If grab fails
         """
+        # Check if existing XML is recent enough to skip fetch
+        xmltv_path = Path(self.xmltv_file)
+        if xmltv_path.exists():
+            xml_age_hours = (datetime.now().timestamp() - xmltv_path.stat().st_mtime) / 3600
+            logger.info(f"Existing EPG XML is {xml_age_hours:.1f} hours old")
+            if xml_age_hours < 1.0:
+                logger.info("EPG XML is recent (< 1 hour), skipping fetch to save time")
+                return str(xmltv_path)
+        
         logger.info("Fetching EPG from Ziggo using ziggogo-epg library...")
         
         # Download channel file from blob storage with fallback to local

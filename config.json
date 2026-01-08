@@ -19,7 +19,7 @@
     "do_not_watchlist_csv": "data/do-not-watchlist.csv"
   },
   "filters": {
-    "languages": ["en", "nl", "gb"],
+    "languages": ["en", "nl"],
     "min_rating": 6.5,
     "include_subtitles": true
   },
