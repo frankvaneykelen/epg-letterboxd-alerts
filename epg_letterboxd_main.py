@@ -808,6 +808,15 @@ def _generate_films_alphabetical_view(suggestions, timestamp):
     html_lines.append(_build_film_table(sorted_suggestions))
     html_lines.append('        </div>')
     html_lines.append('    </div>')
+    html_lines.append(_build_film_poster_modal())
+    html_lines.append('    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>')
+    html_lines.append('    <script>')
+    html_lines.append('        function showPoster(url, title) {')
+    html_lines.append('            document.getElementById("posterModalImage").src = url;')
+    html_lines.append('            document.getElementById("posterModalLabel").textContent = title;')
+    html_lines.append('            new bootstrap.Modal(document.getElementById("posterModal")).show();')
+    html_lines.append('        }')
+    html_lines.append('    </script>')
     html_lines.append('</body>')
     html_lines.append('</html>')
     
@@ -835,13 +844,9 @@ def _generate_films_alphabetical_view(suggestions, timestamp):
         logger.info(f"Saved timestamped copy to {data_path}")
 
     # Upload to blob storage
-    try:
-        from blob_html_writer import BlobHtmlWriter
-        blob_writer = BlobHtmlWriter()
-        blob_writer.write_html('index-alphabetical.html', html_content)
-        logger.info("Uploaded alphabetical film view to blob storage")
-    except Exception as e:
-        logger.error(f"Failed to upload alphabetical film view to blob storage: {e}")
+    upload_html_to_blob(html_content, "index-alphabetical.html")
+    logger.info(f"Generated index-alphabetical.html ({len(sorted_suggestions)} films)")
+
 def _generate_films_by_channel_view(suggestions, timestamp):
     """Generate index-per-channel.html grouped by channel."""
     from collections import defaultdict
