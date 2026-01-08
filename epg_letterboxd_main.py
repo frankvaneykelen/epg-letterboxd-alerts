@@ -275,8 +275,8 @@ def main(mytimer: func.TimerRequest) -> None:
         logger.info(f"Filtered EPG to {len(broadcasts)} movie broadcasts")
 
         # TEMPORARY: Limit to first x movies for testing
-        broadcasts = broadcasts[:25]
-        logger.info(f"⚠️ TESTING MODE: Limited to first {len(broadcasts)} movies")
+        # broadcasts = broadcasts[:25]
+        # logger.info(f"⚠️ TESTING MODE: Limited to first {len(broadcasts)} movies")
         
         # Store total for HTML report
         total_broadcasts_processed = len(broadcasts)
