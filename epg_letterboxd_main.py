@@ -634,6 +634,86 @@ def _build_film_nav_menu(active_page):
     
     return '\n'.join(nav_html)
 
+def _build_film_table_row(suggestion):
+    """Build a single HTML table row for a film suggestion."""
+    broadcast = suggestion['broadcast']
+    title = broadcast.title
+    year = broadcast.date if hasattr(broadcast, 'date') else "-"
+    title_html = title
+    tmdb_title = broadcast.title
+    tmdb_year = year if year != "-" else ""
+    from urllib.parse import quote
+    lb_search_parts = [quote(p, safe='') for p in [tmdb_title, tmdb_year] if p]
+    lb_search_query = "+".join(lb_search_parts)
+    lb_search_url = f"https://letterboxd.com/search/films/{lb_search_query}/?adult"
+    lb_link = f'<a href="{lb_search_url}" target="letterboxd">🔍</a>'
+    poster_html = "-"
+    if suggestion.get('tmdb_data') and suggestion['tmdb_data'].get('poster_path'):
+        poster_path = suggestion['tmdb_data']['poster_path']
+        thumb_url = f"https://image.tmdb.org/t/p/w92{poster_path}"
+        full_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+        title_escaped = title.replace('"', '&quot;')
+        poster_html = f'<img src="{thumb_url}" alt="{title}" style="height: 60px; border-radius: 4px; cursor: pointer;" onclick="showPoster(\'{full_url}\', \'{title_escaped}\')">'
+    rating_val = suggestion.get('rating')
+    if rating_val and suggestion.get('tmdb_data'):
+        tmdb_id = suggestion['tmdb_data'].get('id')
+        tmdb_url = f"https://www.themoviedb.org/movie/{tmdb_id}"
+        rating = f'<a href="{tmdb_url}" target="tmdb">{rating_val:.1f}</a>'
+    elif rating_val:
+        rating = f'{rating_val:.1f}'
+    else:
+        rating = "-"
+    genre = broadcast.categories[0] if broadcast.categories else "-"
+    country = broadcast.country if broadcast.country else "-"
+    if broadcast.director:
+        import unicodedata
+        normalized = unicodedata.normalize('NFD', broadcast.director)
+        ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+        director_slug = ascii_name.lower().replace(" ", "-").replace(".", "").replace("'", "")
+        director = f'<a href="https://letterboxd.com/director/{director_slug}/" target="letterboxd">{broadcast.director}</a>'
+    else:
+        director = "-"
+    if broadcast.actors:
+        import unicodedata
+        actor_links = []
+        for actor in broadcast.actors[:3]:
+            normalized = unicodedata.normalize('NFD', actor)
+            ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
+            actor_slug = ascii_name.lower().replace(" ", "-").replace(".", "").replace("'", "")
+            actor_links.append(f'<a href="https://letterboxd.com/actor/{actor_slug}/" target="letterboxd">{actor}</a>')
+        actors = ", ".join(actor_links)
+    else:
+        actors = "-"
+    channel = broadcast.channel_name
+    bcast_date = broadcast.start_time.strftime("%Y-%m-%d")
+    bcast_time = broadcast.start_time.strftime("%H:%M")
+    subtitle_desc = ""
+    if broadcast.subtitle and broadcast.description:
+        subtitle_desc = f"{broadcast.subtitle}<br><small class='text-muted'>{broadcast.description}</small>"
+    elif broadcast.subtitle:
+        subtitle_desc = broadcast.subtitle
+    elif broadcast.description:
+        subtitle_desc = f"<small class='text-muted'>{broadcast.description}</small>"
+    else:
+        subtitle_desc = "-"
+    row_html = []
+    row_html.append('                        <tr>')
+    row_html.append(f'                            <td>{title_html}</td>')
+    row_html.append(f'                            <td>{poster_html}</td>')
+    row_html.append(f'                            <td>{subtitle_desc}</td>')
+    row_html.append(f'                            <td>{rating}</td>')
+    row_html.append(f'                            <td>{lb_link}</td>')
+    row_html.append(f'                            <td>{year}</td>')
+    row_html.append(f'                            <td>{genre}</td>')
+    row_html.append(f'                            <td>{country}</td>')
+    row_html.append(f'                            <td>{director}</td>')
+    row_html.append(f'                            <td>{actors}</td>')
+    row_html.append(f'                            <td>{channel}</td>')
+    row_html.append(f'                            <td>{bcast_date}</td>')
+    row_html.append(f'                            <td>{bcast_time}</td>')
+    row_html.append('                        </tr>')
+    return '\n'.join(row_html)
+
 def _build_film_table(suggestions):
     """Build HTML table for a list of film suggestions."""
     table_html = []
