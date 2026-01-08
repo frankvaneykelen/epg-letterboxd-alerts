@@ -81,12 +81,21 @@ class DoNotWatchListLoader:
             
             count = 0
             for entity in entities:
-                name = entity.get('Name', '').strip()
-                year = entity.get('Year')
+                row_key = entity.get('RowKey', '').strip()
                 
-                if name and year:
-                    self._do_not_watchlist_films.add((name, int(year)))
-                    count += 1
+                if row_key and '_' in row_key:
+                    # Split on last underscore to separate title from year
+                    # e.g., "Trolls Band Together_2023" -> "Trolls Band Together", "2023"
+                    parts = row_key.rsplit('_', 1)
+                    if len(parts) == 2:
+                        name = parts[0].strip()
+                        year_str = parts[1].strip()
+                        try:
+                            year = int(year_str)
+                            self._do_not_watchlist_films.add((name, year))
+                            count += 1
+                        except ValueError:
+                            logger.warning(f"Invalid year in RowKey: {row_key}")
             
             logger.info(f"Loaded {count} films from do-not-watchlist table")
             return True
