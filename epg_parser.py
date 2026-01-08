@@ -120,7 +120,28 @@ class EPGParser:
                     cache_filename = Path(self.database_file).name
                     downloaded_cache = download_config_file(cache_filename, database_file)
                     if Path(downloaded_cache).exists():
-                        logger.info(f"Downloaded SQLite cache from blob storage ({Path(downloaded_cache).stat().st_size} bytes)")
+                        cache_size = Path(downloaded_cache).stat().st_size
+                        logger.info(f"Downloaded SQLite cache from blob storage ({cache_size} bytes)")
+                        
+                        # Verify database has required tables, recreate if corrupted
+                        import sqlite3
+                        try:
+                            test_db = sqlite3.connect(downloaded_cache)
+                            test_cur = test_db.cursor()
+                            test_cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='programmes'")
+                            if test_cur.fetchone() is None:
+                                logger.warning("Downloaded cache is missing 'programmes' table - will reinitialize")
+                                test_db.close()
+                                Path(downloaded_cache).unlink()  # Delete corrupted cache
+                            else:
+                                test_db.close()
+                                logger.info("Downloaded cache verified successfully")
+                        except Exception as verify_err:
+                            logger.warning(f"Cache verification failed: {verify_err} - will create fresh cache")
+                            try:
+                                Path(downloaded_cache).unlink()
+                            except:
+                                pass
                     else:
                         logger.info("No existing cache found in blob storage - will create fresh cache")
                 except Exception as e:

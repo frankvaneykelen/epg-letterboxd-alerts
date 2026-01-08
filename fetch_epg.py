@@ -109,7 +109,7 @@ def fetch_epg(channel_file="data/channels.txt", output_file="data/ziggogo.xml", 
         print(f"  Output: {output_file}")
         print(f"  Cache:  {database_file}")
         
-        return True
+        return output_file
         
     except Exception as e:
         print(f"\n✗ Error: {e}\n")

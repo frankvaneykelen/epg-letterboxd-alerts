@@ -72,12 +72,14 @@ def list_non_films():
             logger.info("EPG XML is recent (< 1 hour), skipping fetch to save time")
         else:
             logger.info("Fetching series EPG data from Ziggo...")
-            fetch_epg.fetch_epg(
+            actual_path = fetch_epg.fetch_epg(
                 channel_file="data/channels-series.txt",
                 output_file=xml_output_path,
                 scan_days=7  # 7 days for series (fewer programmes to fetch)
             )
-            logger.info("Series EPG fetch completed successfully")
+            if actual_path:
+                xml_output_path = actual_path  # Update path to actual location used
+            logger.info(f"Series EPG fetch completed successfully at {xml_output_path}")
     except Exception as e:
         logger.error(f"EPG update failed: {e}", exc_info=True)
         logger.warning("Continuing with existing data...")
