@@ -772,8 +772,16 @@ def _build_film_table(suggestions):
 
 def _generate_films_alphabetical_view(suggestions, timestamp):
     """Generate HTML view sorted alphabetically by title."""
-    # Sort suggestions by title (case-insensitive)
-    sorted_suggestions = sorted(suggestions, key=lambda s: s['broadcast'].title.lower())
+    # Sort suggestions by title (case-insensitive, fallback to empty string if missing)
+    def get_title(s):
+        try:
+            title = getattr(s['broadcast'], 'title', None)
+            if title and isinstance(title, str):
+                return title.lower()
+            return ''
+        except Exception:
+            return ''
+    sorted_suggestions = sorted(suggestions, key=get_title)
     
     # Build HTML
     html_lines = []
@@ -927,14 +935,14 @@ def _generate_films_by_genre_view(suggestions, timestamp):
     
     # Generate a table for each genre
     for genre in sorted_genres:
-        films = sorted(by_genre[genre], key=lambda s: s['broadcast'].title.lower())
+        films = by_genre[genre]
         html_lines.append(f'        <div class="genre-section">')
         html_lines.append(f'            <h2>{genre} ({len(films)})</h2>')
         html_lines.append('            <div class="table-responsive">')
         html_lines.append(_build_film_table(films))
         html_lines.append('            </div>')
         html_lines.append('        </div>')
-    
+
     html_lines.append('    </div>')
     html_lines.append(_build_film_poster_modal())
     html_lines.append('    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>')
@@ -947,107 +955,12 @@ def _generate_films_by_genre_view(suggestions, timestamp):
     html_lines.append('    </script>')
     html_lines.append('</body>')
     html_lines.append('</html>')
-    
+
     html_content = '\n'.join(html_lines)
-    
     # Upload and save
     upload_html_to_blob(html_content, "index-per-genre.html")
     _save_film_local_html(html_content, "index-per-genre.html", timestamp)
     logger.info(f"Generated index-per-genre.html ({len(sorted_genres)} genres)")
-
-    tmdb_title = broadcast.title
-    tmdb_year = year if year != "-" else ""
-    # Escape each part individually, then join with +
-    lb_search_parts = [quote(p, safe='') for p in [tmdb_title, tmdb_year] if p]
-    lb_search_query = "+".join(lb_search_parts)
-    lb_search_url = f"https://letterboxd.com/search/films/{lb_search_query}/?adult"
-    lb_link = f'<a href="{lb_search_url}" target="letterboxd">🔍</a>'
-    
-    # Poster image
-    poster_html = "-"
-    if suggestion.get('tmdb_data') and suggestion['tmdb_data'].get('poster_path'):
-        poster_path = suggestion['tmdb_data']['poster_path']
-        thumb_url = f"https://image.tmdb.org/t/p/w92{poster_path}"
-        full_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
-        title_escaped = title.replace('"', '&quot;')
-        poster_html = f'<img src="{thumb_url}" alt="{title}" style="height: 60px; border-radius: 4px; cursor: pointer;" onclick="showPoster(\'{full_url}\', \'{title_escaped}\')">'
-    
-    # Rating with TMDb link
-    rating_val = suggestion.get('rating')
-    if rating_val and suggestion.get('tmdb_data'):
-        tmdb_id = suggestion['tmdb_data'].get('id')
-        tmdb_url = f"https://www.themoviedb.org/movie/{tmdb_id}"
-        rating = f'<a href="{tmdb_url}" target="tmdb">{rating_val:.1f}</a>'
-    elif rating_val:
-        rating = f'{rating_val:.1f}'
-    else:
-        rating = "-"
-    
-    # Genre
-    genre = broadcast.categories[0] if broadcast.categories else "-"
-    
-    # Country
-    country = broadcast.country if broadcast.country else "-"
-    
-    # Director link
-    if broadcast.director:
-        import unicodedata
-        normalized = unicodedata.normalize('NFD', broadcast.director)
-        ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
-        director_slug = ascii_name.lower().replace(" ", "-").replace(".", "").replace("'", "")
-        director = f'<a href="https://letterboxd.com/director/{director_slug}/" target="letterboxd">{broadcast.director}</a>'
-    else:
-        director = "-"
-    
-    # Actor links
-    if broadcast.actors:
-        import unicodedata
-        actor_links = []
-        for actor in broadcast.actors[:3]:
-            normalized = unicodedata.normalize('NFD', actor)
-            ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
-            actor_slug = ascii_name.lower().replace(" ", "-").replace(".", "").replace("'", "")
-            actor_links.append(f'<a href="https://letterboxd.com/actor/{actor_slug}/" target="letterboxd">{actor}</a>')
-        actors = ", ".join(actor_links)
-    else:
-        actors = "-"
-    
-    # Channel
-    channel = broadcast.channel_name
-    
-    # Date and Time
-    bcast_date = broadcast.start_time.strftime("%Y-%m-%d")
-    bcast_time = broadcast.start_time.strftime("%H:%M")
-    
-    # Subtitle and description
-    subtitle_desc = ""
-    if broadcast.subtitle and broadcast.description:
-        subtitle_desc = f"{broadcast.subtitle}<br><small class='text-muted'>{broadcast.description}</small>"
-    elif broadcast.subtitle:
-        subtitle_desc = broadcast.subtitle
-    elif broadcast.description:
-        subtitle_desc = f"<small class='text-muted'>{broadcast.description}</small>"
-    else:
-        subtitle_desc = "-"
-    
-    row_html = []
-    row_html.append('                        <tr>')
-    row_html.append(f'                            <td>{title_html}</td>')
-    row_html.append(f'                            <td>{poster_html}</td>')
-    row_html.append(f'                            <td>{subtitle_desc}</td>')
-    row_html.append(f'                            <td>{rating}</td>')
-    row_html.append(f'                            <td>{lb_link}</td>')
-    row_html.append(f'                            <td>{year}</td>')
-    row_html.append(f'                            <td>{genre}</td>')
-    row_html.append(f'                            <td>{country}</td>')
-    row_html.append(f'                            <td>{director}</td>')
-    row_html.append(f'                            <td>{actors}</td>')
-    row_html.append(f'                            <td>{channel}</td>')
-    row_html.append(f'                            <td>{bcast_date}</td>')
-    row_html.append(f'                            <td>{bcast_time}</td>')
-    row_html.append('                        </tr>')
-    
-    return '\n'.join(row_html)
 
 
 def _build_film_poster_modal():

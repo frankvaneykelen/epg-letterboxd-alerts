@@ -220,11 +220,11 @@ def list_non_films():
         if allowed_channels and channel not in allowed_channels:
             continue
         
-        # Get categories
-        categories = [cat.text for cat in programme.findall('category') if cat.text]
+        # Get categories (normalize to lowercase)
+        categories = [cat.text.strip().lower() for cat in programme.findall('category') if cat.text]
         
-        # Skip if Film is in categories
-        if "Film" in categories:
+        # Skip if 'film' is in categories
+        if "film" in categories:
             continue
         
         # Skip unwanted categories
