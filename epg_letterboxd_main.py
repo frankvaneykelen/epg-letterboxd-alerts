@@ -635,7 +635,7 @@ def _build_film_nav_menu(active_page):
     return '\n'.join(nav_html)
 
 def _generate_films_alphabetical_view(suggestions, timestamp):
-    \"\"\"Generate HTML view sorted alphabetically by title.\"\"\"
+    """Generate HTML view sorted alphabetically by title."""
     # Sort suggestions by title (case-insensitive)
     sorted_suggestions = sorted(suggestions, key=lambda s: s['broadcast'].title.lower())
     
@@ -667,22 +667,22 @@ def _generate_films_alphabetical_view(suggestions, timestamp):
     html_lines.append('</body>')
     html_lines.append('</html>')
     
-    html_content = '\\n'.join(html_lines)
-    
+    html_content = '\n'.join(html_lines)
+
     # Write to local file
-    output_path = f\"data/index-alphabetical.html\"
+    output_path = "data/index-alphabetical.html"
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
-    logger.info(f\"Generated alphabetical film view: {output_path}\")
-    
+    logger.info(f"Generated alphabetical film view: {output_path}")
+
     # Upload to blob storage
     try:
         from blob_html_writer import BlobHtmlWriter
         blob_writer = BlobHtmlWriter()
         blob_writer.write_html('index-alphabetical.html', html_content)
-        logger.info(\"Uploaded alphabetical film view to blob storage\")
+        logger.info("Uploaded alphabetical film view to blob storage")
     except Exception as e:
-        logger.error(f\"Failed to upload alphabetical film view to blob storage: {e}\")
+        logger.error(f"Failed to upload alphabetical film view to blob storage: {e}")
 
 def _generate_films_by_channel_view(suggestions, timestamp):
     """Generate index-per-channel.html grouped by channel."""
@@ -819,57 +819,7 @@ def _generate_films_by_genre_view(suggestions, timestamp):
     _save_film_local_html(html_content, "index-per-genre.html", timestamp)
     logger.info(f"Generated index-per-genre.html ({len(sorted_genres)} genres)")
 
-
-def _build_film_table(suggestions):
-    """Build HTML table for a list of film suggestions."""
-    table_lines = []
-    table_lines.append('                <table class="table table-striped table-hover">')
-    table_lines.append('                    <thead>')
-    table_lines.append('                        <tr>')
-    table_lines.append('                            <th>Title</th>')
-    table_lines.append('                            <th>Poster</th>')
-    table_lines.append('                            <th>Subtitle / Description</th>')
-    table_lines.append('                            <th>Rating</th>')
-    table_lines.append('                            <th>LB</th>')
-    table_lines.append('                            <th>Year</th>')
-    table_lines.append('                            <th>Genre</th>')
-    table_lines.append('                            <th>Cntry</th>')
-    table_lines.append('                            <th>Director</th>')
-    table_lines.append('                            <th>Actors</th>')
-    table_lines.append('                            <th>Channel</th>')
-    table_lines.append('                            <th>Date</th>')
-    table_lines.append('                            <th>Time (CET)</th>')
-    table_lines.append('                        </tr>')
-    table_lines.append('                    </thead>')
-    table_lines.append('                    <tbody>')
-    
-    for suggestion in suggestions:
-        table_lines.append(_build_film_table_row(suggestion))
-    
-    table_lines.append('                    </tbody>')
-    table_lines.append('                </table>')
-    
-    return '\n'.join(table_lines)
-
-
-def _build_film_table_row(suggestion):
-    """Build a single table row for a film suggestion."""
-    from urllib.parse import quote
-    
-    broadcast = suggestion['broadcast']
-    title = broadcast.title
-    year = broadcast.date if broadcast.date else "-"
-    
-    # Ziggogo search link
-    search_url = f"https://www.ziggogo.tv/nl/epg/initial/search/{quote(title)}%20{year}"
-    title_html = f'<a href="{search_url}" target="ziggogo">{title}</a>'
-    
-    # Build Letterboxd search link
-    tmdb_data = suggestion.get('tmdb_data')
-    if tmdb_data and tmdb_data.get('title'):
-        tmdb_title = tmdb_data.get('title')
-    else:
-        tmdb_title = broadcast.title
+    tmdb_title = broadcast.title
     tmdb_year = year if year != "-" else ""
     # Escape each part individually, then join with +
     lb_search_parts = [quote(p, safe='') for p in [tmdb_title, tmdb_year] if p]
