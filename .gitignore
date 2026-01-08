@@ -218,4 +218,3 @@ data/watched.csv
 data/watchlist.csv
 *.PublishSettings
 wwwroot/*.html
-wwwroot/new-series.html

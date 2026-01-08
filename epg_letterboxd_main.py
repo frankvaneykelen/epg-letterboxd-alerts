@@ -596,6 +596,9 @@ def _generate_grouped_film_views(suggestions, timestamp):
     """Generate channel and genre grouped views for films."""
     from collections import defaultdict
     
+    # Generate alphabetical view
+    _generate_films_alphabetical_view(suggestions, timestamp)
+    
     # Generate by-channel view
     _generate_films_by_channel_view(suggestions, timestamp)
     
@@ -607,6 +610,7 @@ def _build_film_nav_menu(active_page):
     """Build navigation menu for film pages with active page highlighted."""
     pages = [
         ('index.html', 'Chronological'),
+        ('index-alphabetical.html', 'Alphabetical'),
         ('index-per-channel.html', 'By Channel'),
         ('index-per-genre.html', 'By Genre'),
         ('new-series.html', 'Series →')
@@ -630,6 +634,55 @@ def _build_film_nav_menu(active_page):
     
     return '\n'.join(nav_html)
 
+def _generate_films_alphabetical_view(suggestions, timestamp):
+    \"\"\"Generate HTML view sorted alphabetically by title.\"\"\"
+    # Sort suggestions by title (case-insensitive)
+    sorted_suggestions = sorted(suggestions, key=lambda s: s['broadcast'].title.lower())
+    
+    # Build HTML
+    html_lines = []
+    html_lines.append('<!DOCTYPE html>')
+    html_lines.append('<html lang="en" data-bs-theme="dark">')
+    html_lines.append('<head>')
+    html_lines.append('    <meta charset="UTF-8">')
+    html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
+    html_lines.append('    <title>Ziggo Films to Record - Curated for @stereoparty - Alphabetical</title>')
+    html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
+    html_lines.append('    <style>')
+    html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
+    html_lines.append('        .table { --bs-table-bg: #1a1a1a; --bs-table-striped-bg: #222; }')
+    html_lines.append('        .table td, .table th { border-color: #333; }')
+    html_lines.append('        a { color: #4a9eff; text-decoration: none; }')
+    html_lines.append('        a:hover { color: #6eb4ff; text-decoration: underline; }')
+    html_lines.append('    </style>')
+    html_lines.append('</head>')
+    html_lines.append('<body>')
+    html_lines.append('    <div class="container-fluid py-4">')
+    html_lines.append(_build_film_nav_menu('index-alphabetical.html'))
+    html_lines.append(f'        <p class="text-muted">Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | Total: {len(sorted_suggestions)} films</p>')
+    html_lines.append('        <div class="table-responsive">')
+    html_lines.append(_build_film_table(sorted_suggestions))
+    html_lines.append('        </div>')
+    html_lines.append('    </div>')
+    html_lines.append('</body>')
+    html_lines.append('</html>')
+    
+    html_content = '\\n'.join(html_lines)
+    
+    # Write to local file
+    output_path = f\"data/index-alphabetical.html\"
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    logger.info(f\"Generated alphabetical film view: {output_path}\")
+    
+    # Upload to blob storage
+    try:
+        from blob_html_writer import BlobHtmlWriter
+        blob_writer = BlobHtmlWriter()
+        blob_writer.write_html('index-alphabetical.html', html_content)
+        logger.info(\"Uploaded alphabetical film view to blob storage\")
+    except Exception as e:
+        logger.error(f\"Failed to upload alphabetical film view to blob storage: {e}\")
 
 def _generate_films_by_channel_view(suggestions, timestamp):
     """Generate index-per-channel.html grouped by channel."""
