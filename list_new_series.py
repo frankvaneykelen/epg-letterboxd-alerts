@@ -354,8 +354,8 @@ def list_non_films():
     non_film_count = len(programmes)
     
     # TEMPORARY: Limit to first x movies for testing
-    # programmes = programmes[:25]
-    # logger.info(f"⚠️ TESTING MODE: Limited to first {len(programmes)} series")
+    programmes = programmes[:25]
+    logger.info(f"⚠️ TESTING MODE: Limited to first {len(programmes)} series")
         
     print()  # New line after progress
     print(f"Found {non_film_count} new series across {len(set(p['channel'] for p in programmes))} channels")

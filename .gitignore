@@ -217,4 +217,3 @@ data/do-not-watchlist.csv
 data/watched.csv
 data/watchlist.csv
 *.PublishSettings
-wwwroot/*.html

@@ -275,8 +275,8 @@ def main(mytimer: func.TimerRequest) -> None:
         logger.info(f"Filtered EPG to {len(broadcasts)} movie broadcasts")
 
         # TEMPORARY: Limit to first x movies for testing
-        # broadcasts = broadcasts[:25]
-        # logger.info(f"⚠️ TESTING MODE: Limited to first {len(broadcasts)} movies")
+        broadcasts = broadcasts[:25]
+        logger.info(f"⚠️ TESTING MODE: Limited to first {len(broadcasts)} movies")
         
         # Store total for HTML report
         total_broadcasts_processed = len(broadcasts)
@@ -813,11 +813,26 @@ def _generate_films_alphabetical_view(suggestions, timestamp):
     
     html_content = '\n'.join(html_lines)
 
-    # Write to local file
-    output_path = "data/index-alphabetical.html"
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-    logger.info(f"Generated alphabetical film view: {output_path}")
+    # Only write to local file if not running in Azure
+    is_azure = (
+        os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
+        os.environ.get('WEBSITE_INSTANCE_ID') or 
+        os.environ.get('WEBSITE_SITE_NAME')
+    )
+    if not is_azure:
+        # Save to wwwroot/
+        local_path = Path("wwwroot") / "index-alphabetical.html"
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(local_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        logger.info(f"Saved local copy to {local_path}")
+
+        # Save timestamped copy to data/
+        data_path = Path("data") / f"index-alphabetical-{timestamp}.html"
+        data_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(data_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        logger.info(f"Saved timestamped copy to {data_path}")
 
     # Upload to blob storage
     try:
@@ -827,7 +842,6 @@ def _generate_films_alphabetical_view(suggestions, timestamp):
         logger.info("Uploaded alphabetical film view to blob storage")
     except Exception as e:
         logger.error(f"Failed to upload alphabetical film view to blob storage: {e}")
-
 def _generate_films_by_channel_view(suggestions, timestamp):
     """Generate index-per-channel.html grouped by channel."""
     from collections import defaultdict
@@ -889,9 +903,28 @@ def _generate_films_by_channel_view(suggestions, timestamp):
     
     html_content = '\n'.join(html_lines)
     
-    # Upload and save
+    # Upload to blob storage
     upload_html_to_blob(html_content, "index-per-channel.html")
-    _save_film_local_html(html_content, "index-per-channel.html", timestamp)
+
+    # Save locally if not in Azure
+    is_azure = (
+        os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
+        os.environ.get('WEBSITE_INSTANCE_ID') or 
+        os.environ.get('WEBSITE_SITE_NAME')
+    )
+    if not is_azure:
+        local_path = Path("wwwroot") / "index-per-channel.html"
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(local_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        logger.info(f"Saved local copy to {local_path}")
+
+        data_path = Path("data") / f"index-per-channel-{timestamp}.html"
+        data_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(data_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        logger.info(f"Saved timestamped copy to {data_path}")
+
     logger.info(f"Generated index-per-channel.html ({len(sorted_channels)} channels)")
 
 
@@ -957,9 +990,28 @@ def _generate_films_by_genre_view(suggestions, timestamp):
     html_lines.append('</html>')
 
     html_content = '\n'.join(html_lines)
-    # Upload and save
+    # Upload to blob storage
     upload_html_to_blob(html_content, "index-per-genre.html")
-    _save_film_local_html(html_content, "index-per-genre.html", timestamp)
+
+    # Save locally if not in Azure
+    is_azure = (
+        os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
+        os.environ.get('WEBSITE_INSTANCE_ID') or 
+        os.environ.get('WEBSITE_SITE_NAME')
+    )
+    if not is_azure:
+        local_path = Path("wwwroot") / "index-per-genre.html"
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(local_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        logger.info(f"Saved local copy to {local_path}")
+
+        data_path = Path("data") / f"index-per-genre-{timestamp}.html"
+        data_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(data_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        logger.info(f"Saved timestamped copy to {data_path}")
+
     logger.info(f"Generated index-per-genre.html ({len(sorted_genres)} genres)")
 
 
