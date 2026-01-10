@@ -32,5 +32,6 @@ BBC Two
 TV5Monde
 NPO 1 Extra
 NPO 2 Extra
+FilmBox
 
 # Add more channels as needed
