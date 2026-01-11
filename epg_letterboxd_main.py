@@ -660,7 +660,7 @@ def _build_film_table_row(suggestion):
         poster_html = f'<img src="{thumb_url}" alt="{title}" style="height: 60px; border-radius: 4px; cursor: pointer;" onclick="showPoster(\'{full_url}\', \'{title_escaped}\')">'
     rating_val = suggestion.get('rating')
     if rating_val and suggestion.get('tmdb_data'):
-        tmdb_id = suggestion['tmdb_data'].get('id')
+        tmdb_id = suggestion['tmdb_data'].get('tmdb_id')
         tmdb_url = f"https://www.themoviedb.org/movie/{tmdb_id}"
         rating = f'<a href="{tmdb_url}" target="tmdb">{rating_val:.1f}</a>'
     elif rating_val:

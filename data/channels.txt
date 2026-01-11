@@ -24,6 +24,8 @@ SBS9
 ID
 TLC
 BBC NL
+National Geographic
+HISTORY
 ONS
 VRT 1
 VRT CANVAS
@@ -33,5 +35,11 @@ TV5Monde
 NPO 1 Extra
 NPO 2 Extra
 FilmBox
+Curiosity Channel
+Discovery Science
+National Geographic WILD
+Love Nature
+Animal Planet
+Dreamworks
 
 # Add more channels as needed

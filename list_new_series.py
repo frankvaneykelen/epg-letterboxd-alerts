@@ -841,7 +841,7 @@ def _build_table_row(prog, icon_map):
     
     # Rating with TMDb link
     if prog['tmdb_data']:
-        tmdb_id = prog['tmdb_data'].get('id')
+        tmdb_id = prog['tmdb_data'].get('tmdb_id')
         tmdb_url = f"https://www.themoviedb.org/tv/{tmdb_id}"
         rating = f'<a href="{tmdb_url}" target="tmdb">{prog["rating"]}</a>'
     else:
