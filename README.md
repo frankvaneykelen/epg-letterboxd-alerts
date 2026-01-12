@@ -1,5 +1,7 @@
 # EPG-Letterboxd Alerts
 
+<img src="/docs/images/icon.png" style="width:33%" />
+
 Combine Ziggo's EPG (XMLTV) with Letterboxd film data to generate personalized "What to Record" alerts and optionally schedule recordings via TVHeadend.
 
 ## Features
