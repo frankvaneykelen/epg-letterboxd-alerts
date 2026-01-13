@@ -135,17 +135,24 @@ Command Prompt:
 
 **Run the function locally:**
 
+For movies:
 ```bash
-python __init__.py
+python epg_letterboxd_main.py
+```
+
+For TV series:
+```bash
+python list_new_series.py
 ```
 
 **What to expect:**
 - Function will load configuration and environment variables
-- Import/load Letterboxd CSV data (if enabled)
-- Fetch EPG from configured URL
+- Import/load Letterboxd CSV data (if enabled for movies)
+- Fetch EPG from configured URL (with SQLite caching)
 - Parse and filter broadcasts
-- Match against TMDb and Letterboxd data
-- Log recording suggestions
+- Match against TMDb for ratings and metadata
+- Generate HTML output files in `data/` folder
+- Upload HTML to Azure Blob Storage (if configured)
 
 **Common issues:**
 
