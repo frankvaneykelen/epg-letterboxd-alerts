@@ -4,7 +4,8 @@
     "channel_file": "data/channels.txt",
     "xmltv_file": "data/ziggogo.xml",
     "database_file": "data/ziggogoepg_cache.sqlite3",
-    "scan_days": 7,
+    "scan_days_movies": 14,
+    "scan_days_series": 14,
     "configuration": "ziggo-nl"
   },
   "tmdb": {
@@ -22,9 +23,5 @@
     "languages": ["en", "nl"],
     "min_rating": 6.5,
     "include_subtitles": true
-  },
-  "notifications": {
-    "enabled": false,
-    "service": "azure-notification-hubs"
   }
 }

@@ -72,10 +72,18 @@ def list_non_films():
             logger.info("EPG XML is recent (< 1 hour), skipping fetch to save time")
         else:
             logger.info("Fetching series EPG data from Ziggo...")
+            # Load scan_days_series from config
+            from blob_config_loader import download_config_file
+            config_file_path = download_config_file("config.json", "config.json")
+            import json
+            with open(config_file_path, 'r') as f:
+                config = json.load(f)
+            scan_days_series = config.get("ziggo", {}).get("scan_days_series", 7)
+            
             actual_path = fetch_epg.fetch_epg(
                 channel_file="data/channels-series.txt",
                 output_file=xml_output_path,
-                scan_days=7  # 7 days for series (fewer programmes to fetch)
+                scan_days=scan_days_series
             )
             if actual_path:
                 xml_output_path = actual_path  # Update path to actual location used

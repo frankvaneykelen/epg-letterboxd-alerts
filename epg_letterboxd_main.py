@@ -582,7 +582,6 @@ def main(mytimer: func.TimerRequest) -> None:
             logger.info(f"{title:<35} {year:<6} {genre:<5} {rating:<7} {country:<5} {director:<18} {actors_display:<35} {channel:<18} {bcast_date:<12} {bcast_time:<10}")
         logger.info("="*150)
 
-        # TODO: Send notifications (Azure Notification Hubs integration)
         # TODO: Store suggestions in database (Cosmos DB integration)
 
         logger.info("epg-letterboxd-alerts function completed successfully")
