@@ -10,6 +10,8 @@ import sqlite3
 import time
 import yaml
 import requests
+import asyncio
+import aiohttp
 from pathlib import Path
 from typing import List
 from requests.adapters import HTTPAdapter, Retry
@@ -342,7 +344,7 @@ class ZiggoGoEpgGrabber:
         logger.info(f"Grabbed {segment_count} segments successfully")
 
     def _grab_programmedetails(self):
-        """Grab detailed information for programmes"""
+        """Grab detailed information for programmes using parallel async requests"""
         # Cleanup orphaned details first
         logger.info("Cleaning up programme details...")
         self._dbcur.execute("DELETE FROM programmedetails WHERE id NOT IN (SELECT id FROM programmes)")
@@ -359,7 +361,12 @@ class ZiggoGoEpgGrabber:
         total_count = len(missing_programmes)
         logger.info(f"Fetching details for {total_count} programmes...")
 
-        # Headers to mimic legitimate browser request
+        # Run async fetch
+        programme_ids = [row[0] for row in missing_programmes]
+        asyncio.run(self._fetch_details_async(programme_ids, total_count))
+        
+    async def _fetch_details_async(self, programme_ids: List[str], total_count: int):
+        """Async fetch of programme details with parallelism"""
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'application/json, text/plain, */*',
@@ -367,83 +374,100 @@ class ZiggoGoEpgGrabber:
             'Origin': 'https://www.ziggogo.tv',
             'Referer': 'https://www.ziggogo.tv/',
         }
-
-        session = requests.Session()
-        session.headers.update(headers)
-        retries = Retry(total=10, backoff_factor=0.1)
-        session.mount('https://', HTTPAdapter(max_retries=retries))
-
+        
+        # Process in batches to avoid overwhelming the server
+        batch_size = 50  # Process 50 concurrent requests at a time
         detailsupdate = []
-        for idx, row in enumerate(missing_programmes, 1):
-            prog_id = row[0]
-
-            try:
-                with session.get(self._epg_detail_url.format(prog_id), timeout=5) as r:
-                    if r.status_code != 200:
+        processed = 0
+        
+        timeout = aiohttp.ClientTimeout(total=30, connect=10, sock_read=10)
+        connector = aiohttp.TCPConnector(limit=50, limit_per_host=50)
+        
+        async with aiohttp.ClientSession(headers=headers, timeout=timeout, connector=connector) as session:
+            for i in range(0, len(programme_ids), batch_size):
+                batch = programme_ids[i:i + batch_size]
+                tasks = [self._fetch_programme_detail(session, prog_id) for prog_id in batch]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Process results
+                for prog_id, result in zip(batch, results):
+                    if isinstance(result, Exception):
+                        logger.warning(f"Error fetching details for {prog_id}: {result}")
                         continue
+                    if result:
+                        detailsupdate.append(result)
+                
+                processed += len(batch)
+                
+                # Commit batch to database
+                if detailsupdate:
+                    self._dbcur.executemany("INSERT INTO programmedetails (id, details) VALUES (:id, :details)", detailsupdate)
+                    self._db.commit()
+                    logger.info(f"  Fetched {processed}/{total_count} programme details...")
+                    detailsupdate = []
+        
+        logger.info(f"  Fetched {total_count}/{total_count} programme details")
+    
+    async def _fetch_programme_detail(self, session: aiohttp.ClientSession, prog_id: str):
+        """Fetch a single programme detail"""
+        try:
+            url = self._epg_detail_url.format(prog_id)
+            async with session.get(url) as response:
+                if response.status != 200:
+                    return None
+                
+                programmedata = await response.json()
+                
+                # Title is required
+                try:
+                    details = {"title": programmedata["title"]}
+                except KeyError:
+                    logger.warning(f"Programme data for '{prog_id}' is missing title data, skipping.")
+                    return None
 
-                    programmedata = r.json()
-                    
-                    # Title is required
-                    try:
-                        details = {"title": programmedata["title"]}
-                    except KeyError:
-                        logger.warning(f"Programme data for '{prog_id}' is missing title data, skipping.")
-                        continue
+                # Add optional fields
+                if "episodeName" in programmedata:
+                    details["sub-title"] = programmedata["episodeName"]
+                
+                if "longDescription" in programmedata:
+                    details["desc"] = programmedata["longDescription"]
+                elif "shortDescription" in programmedata:
+                    details["desc"] = programmedata["shortDescription"]
 
-                    # Add optional fields
-                    if "episodeName" in programmedata:
-                        details["sub-title"] = programmedata["episodeName"]
-                    
-                    if "longDescription" in programmedata:
-                        details["desc"] = programmedata["longDescription"]
-                    elif "shortDescription" in programmedata:
-                        details["desc"] = programmedata["shortDescription"]
+                # Credits
+                credits = {}
+                if "actors" in programmedata:
+                    credits["actors"] = programmedata["actors"]
+                if "directors" in programmedata:
+                    credits["directors"] = programmedata["directors"]
+                if "producers" in programmedata:
+                    credits["producers"] = programmedata["producers"]
+                if credits:
+                    details["credits"] = credits
 
-                    # Credits
-                    credits = {}
-                    if "actors" in programmedata:
-                        credits["actors"] = programmedata["actors"]
-                    if "directors" in programmedata:
-                        credits["directors"] = programmedata["directors"]
-                    if "producers" in programmedata:
-                        credits["producers"] = programmedata["producers"]
-                    if credits:
-                        details["credits"] = credits
+                if "productionDate" in programmedata:
+                    details["date"] = programmedata["productionDate"]
 
-                    if "productionDate" in programmedata:
-                        details["date"] = programmedata["productionDate"]
+                if "genres" in programmedata:
+                    details["categories"] = programmedata["genres"]
+                
+                if "countryOfOrigin" in programmedata:
+                    details["country"] = programmedata["countryOfOrigin"]
+                
+                # Episode information
+                episode = {}
+                if "seasonNumber" in programmedata:
+                    episode["season"] = programmedata["seasonNumber"]
+                if "episodeNumber" in programmedata:
+                    episode["episode"] = programmedata["episodeNumber"]
+                if episode:
+                    details["episode"] = episode
+                
+                if "minimumAge" in programmedata:
+                    details["rating"] = programmedata["minimumAge"]
 
-                    if "genres" in programmedata:
-                        details["categories"] = programmedata["genres"]
-                    
-                    if "countryOfOrigin" in programmedata:
-                        details["country"] = programmedata["countryOfOrigin"]
-                    
-                    # Episode information
-                    episode = {}
-                    if "seasonNumber" in programmedata:
-                        episode["season"] = programmedata["seasonNumber"]
-                    if "episodeNumber" in programmedata:
-                        episode["episode"] = programmedata["episodeNumber"]
-                    if episode:
-                        details["episode"] = episode
-                    
-                    if "minimumAge" in programmedata:
-                        details["rating"] = programmedata["minimumAge"]
-
-                    detailsupdate.append({"id": prog_id, "details": json.dumps(details)})
-
-                    if len(detailsupdate) >= 100:
-                        self._dbcur.executemany("INSERT INTO programmedetails (id, details) VALUES (:id, :details)", detailsupdate)
-                        self._db.commit()
-                        logger.info(f"  Fetched {idx}/{total_count} programme details...")
-                        detailsupdate = []
-
-            except Exception as e:
-                logger.warning(f"Error fetching details for {prog_id}: {e}")
-
-        if detailsupdate:
-            self._dbcur.executemany("INSERT INTO programmedetails (id, details) VALUES (:id, :details)", detailsupdate)
-            self._db.commit()
-            logger.info(f"  Fetched {total_count}/{total_count} programme details")
+                return {"id": prog_id, "details": json.dumps(details)}
+                
+        except Exception as e:
+            logger.warning(f"Error fetching details for {prog_id}: {e}")
+            return None
