@@ -57,7 +57,7 @@ class ZiggoGoEpgGrabber:
     def __init__(
         self,
         tv_system_io: TVSystemIo,
-        scan_days: int = 7,
+        scan_days: int = 14,
         configuration_file: str = "ziggo-nl.yml",
         database_file: str = "data/ziggogoepg_cache.sqlite3",
         timezone=None,
