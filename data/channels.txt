@@ -41,5 +41,6 @@ National Geographic WILD
 Love Nature
 Animal Planet
 Dreamworks
+TV5Monde
 
 # Add more channels as needed
