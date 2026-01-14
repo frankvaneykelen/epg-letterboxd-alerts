@@ -48,10 +48,26 @@ def generate_streaming_movies_page():
     tmdb_client = TMDbClient(config)
     letterboxd_csv = LetterboxdCSVLoader(config)
     
-    # Load Letterboxd data
-    if letterboxd_csv.load_data():
-        stats = letterboxd_csv.get_stats()
-        logger.info(f"Letterboxd loaded: {stats['watchlist_count']} watchlist, {stats['seen_count']} seen")
+    # Load Letterboxd CSV data if enabled
+    letterboxd_cfg = config.get("letterboxd", {})
+    if letterboxd_cfg.get("enabled", False):
+        # Check if auto-import is enabled
+        if letterboxd_cfg.get("auto_import", False):
+            logger.info("Auto-importing latest Letterboxd export from Downloads...")
+            try:
+                from import_letterboxd import import_latest_letterboxd_export
+                if import_latest_letterboxd_export():
+                    logger.info("Letterboxd data auto-imported successfully")
+                else:
+                    logger.warning("Auto-import failed; will use existing CSV files if available")
+            except Exception as e:
+                logger.warning(f"Auto-import error: {e}; will use existing CSV files")
+        
+        if letterboxd_csv.load_data():
+            stats = letterboxd_csv.get_stats()
+            logger.info(f"Letterboxd loaded: {stats['watchlist_count']} watchlist, {stats['seen_count']} seen")
+        else:
+            logger.warning("Failed to load Letterboxd CSV data; continuing without it")
     
     # Get min_rating from config
     min_rating = config.get('filters', {}).get('min_rating', 6.5)
@@ -405,15 +421,23 @@ def _generate_html(suggestions, catalogs):
     
     html_content = '\n'.join(html_lines)
     
-    # Save locally
-    local_path = Path("wwwroot") / "streaming-movies.html"
-    local_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(local_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
-    logger.info(f"Saved to {local_path}")
-    
-    # Upload to blob
+    # Upload to blob storage (for Azure Functions and static website hosting)
     upload_html_to_blob(html_content, "streaming-movies.html")
+    
+    # Only save local copy when running locally (not in Azure with read-only filesystem)
+    is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
+               os.environ.get('WEBSITE_INSTANCE_ID') or 
+               os.environ.get('WEBSITE_SITE_NAME'))
+    
+    if not is_azure:
+        try:
+            local_path = Path("wwwroot") / "streaming-movies.html"
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(local_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            logger.info(f"Saved local copy to {local_path}")
+        except Exception as e:
+            logger.warning(f"Could not save local copy: {e}")
 
 
 if __name__ == "__main__":

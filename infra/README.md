@@ -66,7 +66,7 @@ Or set up GitHub Actions with these secrets:
 ### Update TMDb API Key
 
 ```bash
-az functionapp config appsettings set --resource-group ziggo-epg-letterboxd-rg --name epg-letterboxd-prod-func --settings "TMDB_API_KEY=your_new_key" "STREAMING_API_KEY=your_new_streaming_key"
+az functionapp config appsettings set --resource-group ziggo-epg-letterboxd-rg --name ziggo-epg-letterboxd-func --settings "TMDB_API_KEY=your_new_key" "STREAMING_API_KEY=your_new_streaming_key"
 ```
 
 ### View Logs
@@ -74,7 +74,7 @@ az functionapp config appsettings set --resource-group ziggo-epg-letterboxd-rg -
 ```bash
 az functionapp log tail \
   --resource-group ziggo-epg-letterboxd-rg \
-  --name epg-letterboxd-prod-func
+  --name ziggo-epg-letterboxd-func
 ```
 
 Or use Application Insights in Azure Portal.
