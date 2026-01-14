@@ -60,6 +60,7 @@ Edit `.env` (Letterboxd OAuth token only needed if using API mode instead of CSV
 ```env
 # TMDb API Configuration
 TMDB_API_KEY=your_tmdb_api_key_here
+STREAMING_API_KEY=your_streaming_api_key_here
 ```
 
 **Important:** Never commit `.env` to version control. It's already in `.gitignore`.

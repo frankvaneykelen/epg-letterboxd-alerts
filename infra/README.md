@@ -29,7 +29,7 @@ az group create --name ziggo-epg-letterboxd-rg --location westeurope
 Edit `main.parameters.json` with your TMDb API key, then deploy:
 
 ```bash
-az deployment group create --resource-group ziggo-epg-letterboxd-rg --template-file infra/main.bicep --parameters infra/main.parameters.json --parameters tmdbApiKey=YOUR_TMDB_API_KEY
+az deployment group create --resource-group ziggo-epg-letterboxd-rg --template-file infra/main.bicep --parameters infra/main.parameters.json --parameters tmdbApiKey=YOUR_TMDB_API_KEY streamingApiKey=YOUR_STREAMING_API_KEY
 ```
 
 
@@ -66,7 +66,7 @@ Or set up GitHub Actions with these secrets:
 ### Update TMDb API Key
 
 ```bash
-az functionapp config appsettings set --resource-group ziggo-epg-letterboxd-rg --name epg-letterboxd-prod-func --settings "TMDB_API_KEY=your_new_key"
+az functionapp config appsettings set --resource-group ziggo-epg-letterboxd-rg --name epg-letterboxd-prod-func --settings "TMDB_API_KEY=your_new_key" "STREAMING_API_KEY=your_new_streaming_key"
 ```
 
 ### View Logs

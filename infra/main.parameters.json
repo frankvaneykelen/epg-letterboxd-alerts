@@ -10,6 +10,9 @@
     },
     "tmdbApiKey": {
       "value": "YOUR_TMDB_API_KEY_HERE"
+    },
+    "streamingApiKey": {
+      "value": "YOUR_STREAMING_API_KEY_HERE"
     }
   }
 }

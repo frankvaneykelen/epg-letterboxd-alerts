@@ -11,6 +11,10 @@ param projectName string = 'ziggo-epg-letterboxd'
 @secure()
 param tmdbApiKey string
 
+@description('Streaming Availability API Key')
+@secure()
+param streamingApiKey string
+
 @description('Storage account SKU')
 param storageSku string = 'Standard_LRS'
 
@@ -228,6 +232,10 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'TMDB_API_KEY'
           value: tmdbApiKey
+        }
+        {
+          name: 'STREAMING_API_KEY'
+          value: streamingApiKey
         }
         {
           name: 'STORAGE_ACCOUNT_NAME'

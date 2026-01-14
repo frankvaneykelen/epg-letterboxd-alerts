@@ -35,6 +35,17 @@ def epg_letterboxd_series_timer(series_timer: func.TimerRequest) -> None:
     list_non_films()
 
 
+@app.timer_trigger(arg_name="streaming_timer", schedule="0 17 2 * * *")  # Daily at 2:17 AM
+def streaming_movies_timer(streaming_timer: func.TimerRequest) -> None:
+    """
+    TimerTrigger function for Streaming Movies Catalog.
+    Runs daily at 2:17 AM to refresh the streaming catalog.
+    """
+    # Lazy import to avoid module-level dependency loading
+    from list_streaming_movies import generate_streaming_movies_page
+    generate_streaming_movies_page()
+
+
 @app.route(route="", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
 def index(req: func.HttpRequest) -> func.HttpResponse:
     """Serve the films index.html page from blob storage"""
@@ -87,6 +98,34 @@ def new_series(req: func.HttpRequest) -> func.HttpResponse:
     
     return func.HttpResponse(
         "No series data available yet. Function needs to run first.",
+        status_code=404
+    )
+
+
+@app.route(route="streaming-movies", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def streaming_movies(req: func.HttpRequest) -> func.HttpResponse:
+    """Serve the streaming-movies.html page from blob storage"""
+    # Try to download from blob storage first ($web container for static website)
+    html_content = download_html_from_blob("streaming-movies.html")  # Uses $web container by default
+    
+    if html_content:
+        return func.HttpResponse(
+            html_content,
+            mimetype="text/html",
+            status_code=200
+        )
+    
+    # Fallback to local file if blob storage unavailable
+    html_path = Path("wwwroot/streaming-movies.html")
+    if html_path.exists():
+        return func.HttpResponse(
+            html_path.read_text(encoding='utf-8'),
+            mimetype="text/html",
+            status_code=200
+        )
+    
+    return func.HttpResponse(
+        "No streaming movies data available yet. Function needs to run first.",
         status_code=404
     )
 

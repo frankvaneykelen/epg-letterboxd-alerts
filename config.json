@@ -19,6 +19,11 @@
     "diary_csv": "data/diary.csv",
     "do_not_watchlist_csv": "data/do-not-watchlist.csv"
   },
+  "streaming": {
+    "enabled": true,
+    "max_pages": 100,
+    "catalogs": ["netflix", "disney", "prime", "hbo"]
+  },
   "filters": {
     "languages": ["en", "nl"],
     "min_rating": 6.5,
