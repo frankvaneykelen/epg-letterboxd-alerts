@@ -94,7 +94,7 @@ def generate_streaming_movies_page():
     
     # Process each movie
     suggestions = []
-    for idx, movie_data in enumerate(movies, 1):
+    for idx, movie_data in enumerate(movies[:50], 1):
         movie = streaming_client.parse_show_data(movie_data)
         
         title = movie.get('title', 'Unknown')
@@ -175,16 +175,31 @@ def generate_streaming_movies_page():
             'is_seen': is_seen
         })
     
-    # Sort by TMDb rating (highest first)
-    suggestions.sort(key=lambda x: x['tmdb_rating'], reverse=True)
+    # Sort by available_since (descending, then TMDb rating)
+    def parse_date(date_str):
+        if not date_str:
+            return ''
+        try:
+            # Accept both date and datetime
+            return datetime.fromisoformat(date_str)
+        except Exception:
+            return ''
+
+    suggestions.sort(
+        key=lambda x: (
+            parse_date(x['movie'].get('available_since')),
+            x['tmdb_rating']
+        ),
+        reverse=True
+    )
     
     # Generate HTML
-    _generate_html(suggestions, catalogs)
+    _generate_html(suggestions, catalogs, min_rating)
     
     logger.info(f"Generated streaming movies page with {len(suggestions)} films")
 
 
-def _generate_html(suggestions, catalogs):
+def _generate_html(suggestions, catalogs, min_rating):
     """Generate HTML output."""
     timestamp = datetime.now()
     
@@ -228,8 +243,7 @@ def _generate_html(suggestions, catalogs):
     html_lines.append('        </nav>')
     
     html_lines.append(f'        <p class="text-muted">Generated: {timestamp.strftime("%Y-%m-%d %H:%M:%S")}</p>')
-    html_lines.append(f'        <p class="text-muted">Services: {services_str}</p>')
-    html_lines.append(f'        <p class="text-muted">Total movies: {len(suggestions)}</p>')
+    html_lines.append(f'        <p class="text-muted">Found <strong>{len(suggestions)}</strong> movies streaming on <strong>{services_str}</strong> in the <strong>Netherlands</strong> with a <strong>rating higher than {min_rating}</strong> and not already on the watched list for @stereoparty on Letterboxd. Sorted by availability date descending.</p>')
     
     # Table
     html_lines.append('        <div class="table-responsive">')
@@ -237,6 +251,7 @@ def _generate_html(suggestions, catalogs):
     html_lines.append('                <thead>')
     html_lines.append('                    <tr>')
     html_lines.append('                        <th>Title</th>')
+    html_lines.append('                        <th>Available Since</th>')
     html_lines.append('                        <th>Poster</th>')
     html_lines.append('                        <th>Description</th>')
     html_lines.append('                        <th>TMDb Rating</th>')
@@ -247,18 +262,37 @@ def _generate_html(suggestions, catalogs):
     html_lines.append('                        <th>Director</th>')
     html_lines.append('                        <th>Actors</th>')
     html_lines.append('                        <th>Streaming On</th>')
-    html_lines.append('                        <th>Status</th>')
+    html_lines.append('                        <th title="Status badges from Letterboxd">Status</th>')
     html_lines.append('                    </tr>')
     html_lines.append('                </thead>')
     html_lines.append('                <tbody>')
     
-    for suggestion in suggestions:
+    for suggestion in suggestions[:25]:
         movie = suggestion['movie']
         title = movie['title']
         year = movie['year'] or "-"
-        
-        # Title (no link for streaming - they're already on the platform)
-        title_html = f'<strong>{title}</strong>'
+        # Show original title in parentheses if present and different
+        original_title = movie.get('original_title')
+        if original_title:
+            title_html = f'<strong>{title}</strong> <span class="text-muted" style="font-size:0.9em;">({original_title})</span>'
+        else:
+            title_html = f'<strong>{title}</strong>'
+
+        # Available Since
+        available_since = movie.get('available_since')
+        available_since_html = '-'
+        if available_since:
+            try:
+                # If it's a string of digits, treat as unix timestamp (seconds)
+                if str(available_since).isdigit():
+                    dt = datetime.utcfromtimestamp(int(available_since))
+                    available_since_html = dt.strftime('%Y-%m-%d')
+                else:
+                    # Try to parse as ISO date or datetime
+                    dt = datetime.fromisoformat(available_since)
+                    available_since_html = dt.strftime('%Y-%m-%d')
+            except Exception:
+                available_since_html = str(available_since)
         
         # Poster
         poster_html = "-"
@@ -268,8 +302,8 @@ def _generate_html(suggestions, catalogs):
             poster_html = f'<img src="{poster_url}" alt="{title}" style="height: 60px; border-radius: 4px; cursor: pointer;" onclick="showPoster(\'{poster_url}\', \'{title_escaped}\')">'
         
         # Description
-        description = movie.get('description', '')
-        description_html = description[:150] + '...' if len(description) > 150 else (description or '-')
+            description = movie.get('description', '')
+            description_html = description or '-'
         
         # TMDb rating with link
         tmdb_rating = suggestion['tmdb_rating']
@@ -309,46 +343,43 @@ def _generate_html(suggestions, catalogs):
         services = movie.get('streaming_services', [])
         service_html_parts = []
         
-        # Map service names to target IDs
-        service_targets = {
-            'Netflix': 'netflix',
-            'Disney Plus': 'disney',
-            'Prime Video': 'prime',
-            'HBO Max': 'hbo',
-            'SkyShowtime': 'skyshowtime'
-        }
-        
-        # Filter to only our target services and deduplicate by service name
+        # Show streaming service logos (dark theme) if available
         seen_services = set()
         for service in services:
             service_name = service.get('name', 'Unknown')
             service_type = service.get('type', 'subscription')
-            
             # Skip rent/buy options
             if service_type in ['rent', 'buy']:
                 continue
-            
             # Skip services that require channel addons (MUBI, etc.)
             if service.get('addon'):
                 continue
-            
-            # Skip services not in our target list
-            if service_name not in service_targets:
-                continue
-            
             # Skip duplicates
             if service_name in seen_services:
                 continue
             seen_services.add(service_name)
-            
             service_link = service.get('link')
-            target_id = service_targets[service_name]
-            
-            if service_link:
-                service_html_parts.append(f'<a href="{service_link}" target="{target_id}" title="{service_type}">{service_name}</a>')
+            # Try to get logo from imageSet (darkThemeImage preferred, fallback to lightThemeImage)
+            logo_url = None
+            if 'imageSet' in service and isinstance(service['imageSet'], dict):
+                logo_url = service['imageSet'].get('darkThemeImage') or service['imageSet'].get('lightThemeImage')
+            # Fallback: try to get from raw_data if not present
+            if not logo_url and 'raw_data' in movie:
+                # Try to find the matching service in raw_data
+                for raw_option in movie['raw_data'].get('streamingOptions', {}).get('nl', []):
+                    raw_service = raw_option.get('service', {})
+                    if raw_service.get('name') == service_name:
+                        if 'imageSet' in raw_service and isinstance(raw_service['imageSet'], dict):
+                            logo_url = raw_service['imageSet'].get('darkThemeImage') or raw_service['imageSet'].get('lightThemeImage')
+                        break
+            if logo_url:
+                img_tag = f'<img src="{logo_url}" alt="{service_name}" class="service-logo" title="{service_name}">' 
             else:
-                service_html_parts.append(service_name)
-        
+                img_tag = service_name
+            if service_link:
+                service_html_parts.append(f'<a href="{service_link}" target="_blank">{img_tag}</a>')
+            else:
+                service_html_parts.append(img_tag)
         services_html = "<br>".join(service_html_parts) if service_html_parts else "-"
         
         # Status badges from Letterboxd
@@ -360,11 +391,259 @@ def _generate_html(suggestions, catalogs):
         
         status_html = " ".join(status_badges) if status_badges else "-"
         
-        # Country
-        country = suggestion.get('origin_country') or '-'
+        # Country (convert code to name if possible)
+        country_code = suggestion.get('origin_country') or '-'
+        # Simple ISO 3166-1 alpha-2 to name mapping for common countries
+        country_map = {
+            'US': 'United States',
+            'GB': 'United Kingdom',
+            'FR': 'France',
+            'DE': 'Germany',
+            'IT': 'Italy',
+            'ES': 'Spain',
+            'NL': 'Netherlands',
+            'JP': 'Japan',
+            'KR': 'South Korea',
+            'CN': 'China',
+            'IN': 'India',
+            'CA': 'Canada',
+            'AU': 'Australia',
+            'BE': 'Belgium',
+            'SE': 'Sweden',
+            'NO': 'Norway',
+            'DK': 'Denmark',
+            'FI': 'Finland',
+            'RU': 'Russia',
+            'BR': 'Brazil',
+            'AR': 'Argentina',
+            'MX': 'Mexico',
+            'IE': 'Ireland',
+            'CH': 'Switzerland',
+            'PL': 'Poland',
+            'TR': 'Turkey',
+            'CZ': 'Czech Republic',
+            'HU': 'Hungary',
+            'AT': 'Austria',
+            'PT': 'Portugal',
+            'GR': 'Greece',
+            'IL': 'Israel',
+            'NZ': 'New Zealand',
+            'RO': 'Romania',
+            'BG': 'Bulgaria',
+            'UA': 'Ukraine',
+            'ZA': 'South Africa',
+            'TH': 'Thailand',
+            'ID': 'Indonesia',
+            'PH': 'Philippines',
+            'SG': 'Singapore',
+            'MY': 'Malaysia',
+            'HK': 'Hong Kong',
+            'TW': 'Taiwan',
+            'SA': 'Saudi Arabia',
+            'AE': 'UAE',
+            'EG': 'Egypt',
+            'CL': 'Chile',
+            'CO': 'Colombia',
+            'SK': 'Slovakia',
+            'SI': 'Slovenia',
+            'HR': 'Croatia',
+            'RS': 'Serbia',
+            'IS': 'Iceland',
+            'LU': 'Luxembourg',
+            'EE': 'Estonia',
+            'LT': 'Lithuania',
+            'LV': 'Latvia',
+            'MT': 'Malta',
+            'CY': 'Cyprus',
+            'MC': 'Monaco',
+            'LI': 'Liechtenstein',
+            'SM': 'San Marino',
+            'VA': 'Vatican City',
+            'MD': 'Moldova',
+            'BY': 'Belarus',
+            'GE': 'Georgia',
+            'AM': 'Armenia',
+            'AZ': 'Azerbaijan',
+            'KZ': 'Kazakhstan',
+            'UZ': 'Uzbekistan',
+            'KG': 'Kyrgyzstan',
+            'TJ': 'Tajikistan',
+            'TM': 'Turkmenistan',
+            'MN': 'Mongolia',
+            'VN': 'Vietnam',
+            'PK': 'Pakistan',
+            'BD': 'Bangladesh',
+            'LK': 'Sri Lanka',
+            'NP': 'Nepal',
+            'AF': 'Afghanistan',
+            'IR': 'Iran',
+            'IQ': 'Iraq',
+            'SY': 'Syria',
+            'JO': 'Jordan',
+            'LB': 'Lebanon',
+            'QA': 'Qatar',
+            'KW': 'Kuwait',
+            'OM': 'Oman',
+            'BH': 'Bahrain',
+            'YE': 'Yemen',
+            'DZ': 'Algeria',
+            'MA': 'Morocco',
+            'TN': 'Tunisia',
+            'NG': 'Nigeria',
+            'KE': 'Kenya',
+            'GH': 'Ghana',
+            'ET': 'Ethiopia',
+            'TZ': 'Tanzania',
+            'UG': 'Uganda',
+            'CM': 'Cameroon',
+            'CI': 'Ivory Coast',
+            'SN': 'Senegal',
+            'SD': 'Sudan',
+            'MZ': 'Mozambique',
+            'AO': 'Angola',
+            'ZW': 'Zimbabwe',
+            'ZM': 'Zambia',
+            'MW': 'Malawi',
+            'BW': 'Botswana',
+            'NA': 'Namibia',
+            'LS': 'Lesotho',
+            'SZ': 'Eswatini',
+            'MG': 'Madagascar',
+            'MU': 'Mauritius',
+            'SC': 'Seychelles',
+            'CV': 'Cape Verde',
+            'ST': 'Sao Tome and Principe',
+            'GQ': 'Equatorial Guinea',
+            'GA': 'Gabon',
+            'CG': 'Congo',
+            'CD': 'DR Congo',
+            'CF': 'Central African Republic',
+            'TD': 'Chad',
+            'NE': 'Niger',
+            'ML': 'Mali',
+            'BF': 'Burkina Faso',
+            'TG': 'Togo',
+            'BJ': 'Benin',
+            'SL': 'Sierra Leone',
+            'LR': 'Liberia',
+            'GM': 'Gambia',
+            'GW': 'Guinea-Bissau',
+            'GN': 'Guinea',
+            'SO': 'Somalia',
+            'DJ': 'Djibouti',
+            'ER': 'Eritrea',
+            'SZ': 'Eswatini',
+            'SS': 'South Sudan',
+            'RW': 'Rwanda',
+            'BI': 'Burundi',
+            'KM': 'Comoros',
+            'YT': 'Mayotte',
+            'RE': 'Reunion',
+            'PM': 'Saint Pierre and Miquelon',
+            'GL': 'Greenland',
+            'FO': 'Faroe Islands',
+            'GI': 'Gibraltar',
+            'JE': 'Jersey',
+            'GG': 'Guernsey',
+            'IM': 'Isle of Man',
+            'AX': 'Aland Islands',
+            'BQ': 'Caribbean Netherlands',
+            'CW': 'Curacao',
+            'SX': 'Sint Maarten',
+            'BL': 'Saint Barthelemy',
+            'MF': 'Saint Martin',
+            'GP': 'Guadeloupe',
+            'MQ': 'Martinique',
+            'GF': 'French Guiana',
+            'SR': 'Suriname',
+            'AW': 'Aruba',
+            'BS': 'Bahamas',
+            'BB': 'Barbados',
+            'AG': 'Antigua and Barbuda',
+            'DM': 'Dominica',
+            'GD': 'Grenada',
+            'KN': 'Saint Kitts and Nevis',
+            'LC': 'Saint Lucia',
+            'VC': 'Saint Vincent and the Grenadines',
+            'TT': 'Trinidad and Tobago',
+            'AI': 'Anguilla',
+            'BM': 'Bermuda',
+            'KY': 'Cayman Islands',
+            'TC': 'Turks and Caicos Islands',
+            'VG': 'British Virgin Islands',
+            'VI': 'U.S. Virgin Islands',
+            'MS': 'Montserrat',
+            'SH': 'Saint Helena',
+            'FK': 'Falkland Islands',
+            'GS': 'South Georgia and the South Sandwich Islands',
+            'AS': 'American Samoa',
+            'GU': 'Guam',
+            'MP': 'Northern Mariana Islands',
+            'PW': 'Palau',
+            'FM': 'Micronesia',
+            'MH': 'Marshall Islands',
+            'KI': 'Kiribati',
+            'NR': 'Nauru',
+            'TV': 'Tuvalu',
+            'WF': 'Wallis and Futuna',
+            'NU': 'Niue',
+            'TK': 'Tokelau',
+            'TO': 'Tonga',
+            'WS': 'Samoa',
+            'CK': 'Cook Islands',
+            'PF': 'French Polynesia',
+            'NC': 'New Caledonia',
+            'VU': 'Vanuatu',
+            'SB': 'Solomon Islands',
+            'PG': 'Papua New Guinea',
+            'FJ': 'Fiji',
+            'TL': 'Timor-Leste',
+            'MO': 'Macau',
+            'HK': 'Hong Kong',
+            'BN': 'Brunei',
+            'LA': 'Laos',
+            'KH': 'Cambodia',
+            'MM': 'Myanmar',
+            'BT': 'Bhutan',
+            'MV': 'Maldives',
+            'SG': 'Singapore',
+            'BN': 'Brunei',
+            'QA': 'Qatar',
+            'KW': 'Kuwait',
+            'OM': 'Oman',
+            'BH': 'Bahrain',
+            'SA': 'Saudi Arabia',
+            'AE': 'UAE',
+            'JO': 'Jordan',
+            'LB': 'Lebanon',
+            'SY': 'Syria',
+            'IQ': 'Iraq',
+            'IR': 'Iran',
+            'YE': 'Yemen',
+            'PS': 'Palestine',
+            'KW': 'Kuwait',
+            'QA': 'Qatar',
+            'OM': 'Oman',
+            'BH': 'Bahrain',
+            'SA': 'Saudi Arabia',
+            'AE': 'UAE',
+            'JO': 'Jordan',
+            'LB': 'Lebanon',
+            'SY': 'Syria',
+            'IQ': 'Iraq',
+            'IR': 'Iran',
+            'YE': 'Yemen',
+        }
+        # If multiple codes, join names
+        if country_code and country_code != '-':
+            codes = [c.strip() for c in country_code.split(',')]
+            country = ', '.join([country_map.get(c, c) for c in codes])
+        else:
+            country = '-'
         
         html_lines.append('                    <tr>')
         html_lines.append(f'                        <td>{title_html}</td>')
+        html_lines.append(f'                        <td>{available_since_html}</td>')
         html_lines.append(f'                        <td>{poster_html}</td>')
         html_lines.append(f'                        <td style="max-width: 300px; font-size: 0.9em;">{description_html}</td>')
         html_lines.append(f'                        <td>{rating_html}</td>')

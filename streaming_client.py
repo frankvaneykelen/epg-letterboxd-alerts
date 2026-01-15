@@ -258,32 +258,35 @@ class StreamingClient:
         
         # Get streaming options
         streaming_options = show.get("streamingOptions", {}).get("nl", [])
-        
-        # Extract available services
         services = []
+        available_since_dates = []
         for option in streaming_options:
             service = option.get("service", {})
             service_id = service.get("id")
             service_name = service.get("name")
-            addon = option.get("addon")  # Channel/addon info (e.g., MUBI on Prime)
+            addon = option.get("addon")
+            available_since = option.get("availableSince")
             if service_id:
                 services.append({
                     "id": service_id,
                     "name": service_name,
-                    "type": option.get("type"),  # subscription, rent, buy, etc.
+                    "type": option.get("type"),
                     "link": option.get("link"),
-                    "addon": addon
+                    "addon": addon,
+                    "available_since": available_since
                 })
-        
+                if available_since:
+                    available_since_dates.append(available_since)
+        # Use the latest availableSince date among all valid streaming services
+        available_since = max(available_since_dates) if available_since_dates else None
         # Get TMDb ID for cross-referencing with your existing system
         tmdb_id_raw = show.get("tmdbId")
-        # Remove 'movie/' or 'series/' prefix if present
         if tmdb_id_raw and isinstance(tmdb_id_raw, str) and '/' in tmdb_id_raw:
             tmdb_id = tmdb_id_raw.split('/')[-1]
         else:
             tmdb_id = tmdb_id_raw
-        
-        return {
+        original_title = show.get("originalTitle", "")
+        parsed = {
             "title": title,
             "description": overview,
             "year": year,
@@ -297,47 +300,12 @@ class StreamingClient:
             "imdb_id": show.get("imdbId"),
             "poster_url": show.get("imageSet", {}).get("verticalPoster", {}).get("w480"),
             "backdrop_url": show.get("imageSet", {}).get("horizontalPoster", {}).get("w720"),
-            "rating": show.get("rating"),  # 0-100 from Streaming API
-            "raw_data": show  # Keep full data for reference
+            "rating": show.get("rating"),
+            "available_since": available_since,
+            "raw_data": show
         }
+        if original_title and original_title != title:
+            parsed["original_title"] = original_title
+        return parsed
 
 
-if __name__ == "__main__":
-    # Test the client
-    import os
-    from dotenv import load_dotenv
-    
-    load_dotenv()
-    
-    # Your API key from environment
-    api_key = os.getenv('STREAMING_API_KEY')
-    if not api_key:
-        raise ValueError("STREAMING_API_KEY not found in .env file")
-    
-    client = StreamingClient(api_key)
-    
-    # Test: Get recent movies from your streaming services
-    print("Fetching recent movies (2025-2026) from Netflix, Disney+, Prime, HBO Max...")
-    movies = client.get_current_year_movies(
-        catalogs=["netflix", "disney", "prime", "hbo"]
-    )
-    
-    print(f"\nFound {len(movies)} movies from {datetime.now().year - 1}-{datetime.now().year}")
-    
-    # Filter out talk/news client-side
-    filtered = []
-    for movie in movies:
-        genres = [g.get('id') for g in movie.get('genres', [])]
-        if 'talk' not in genres and 'news' not in genres:
-            filtered.append(movie)
-    
-    print(f"After filtering talk/news: {len(filtered)} movies")
-    
-    # Show first 5 as examples
-    for movie in filtered[:5]:
-        parsed = client.parse_show_data(movie)
-        print(f"\n{parsed['title']} ({parsed['year']})")
-        print(f"  Genres: {', '.join(parsed['genres'])}")
-        print(f"  Director: {parsed['director']}")
-        print(f"  Services: {[s['name'] for s in parsed['streaming_services']]}")
-        print(f"  TMDb ID: {parsed['tmdb_id']}")
