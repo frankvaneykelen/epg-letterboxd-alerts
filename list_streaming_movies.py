@@ -94,7 +94,7 @@ def generate_streaming_movies_page():
     
     # Process each movie
     suggestions = []
-    for idx, movie_data in enumerate(movies[:50], 1):
+    for idx, movie_data in enumerate(movies, 1): # add `[:50]` to limit processing for testing
         movie = streaming_client.parse_show_data(movie_data)
         
         title = movie.get('title', 'Unknown')
