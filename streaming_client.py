@@ -27,6 +27,39 @@ class StreamingClient:
             'x-rapidapi-host': 'streaming-availability.p.rapidapi.com',
             'x-rapidapi-key': api_key
         }
+        self._countries_cache = None
+    
+    def get_countries(self) -> Dict[str, str]:
+        """
+        Get country codes and names from the API.
+        Results are cached for the lifetime of the client instance.
+        
+        Returns:
+            Dictionary mapping country codes to country names
+        """
+        if self._countries_cache is not None:
+            return self._countries_cache
+        
+        try:
+            endpoint = f"{self.base_url}/countries"
+            response = requests.get(endpoint, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            countries_data = response.json()
+            
+            # Convert array of {countryCode, name} to dict
+            self._countries_cache = {c['countryCode']: c['name'] for c in countries_data}
+            logger.info(f"Loaded {len(self._countries_cache)} countries from API")
+            return self._countries_cache
+        except Exception as e:
+            logger.warning(f"Failed to fetch countries from API: {e}")
+            # Return basic fallback
+            return {
+                'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France', 'DE': 'Germany',
+                'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'JP': 'Japan',
+                'KR': 'South Korea', 'CN': 'China', 'IN': 'India', 'CA': 'Canada',
+                'AU': 'Australia', 'BE': 'Belgium', 'SE': 'Sweden', 'NO': 'Norway',
+                'DK': 'Denmark', 'FI': 'Finland', 'RU': 'Russia', 'BR': 'Brazil'
+            }
         
     def search_shows(
         self,
@@ -170,6 +203,9 @@ class StreamingClient:
         if catalogs is None:
             catalogs = ["netflix", "disney", "prime", "hbo"]
         
+        # Log parameters once at the start
+        logger.info(f"Fetching movies with: catalogs={catalogs}, year_min={current_year - 1}, year_max={current_year}, rating_min={rating_min}, max_pages={max_pages}")
+        
         # Don't use genres filter - fetch all and filter client-side if needed
         # The API seems to have issues with too many parameters
         
@@ -186,7 +222,8 @@ class StreamingClient:
     def get_current_year_series(
         self,
         catalogs: Optional[List[str]] = None,
-        rating_min: Optional[int] = None
+        rating_min: Optional[int] = None,
+        max_pages: int = 10
     ) -> List[Dict]:
         """
         Get series from current and previous year.
@@ -194,6 +231,7 @@ class StreamingClient:
         Args:
             catalogs: List of streaming services (default: your subscriptions)
             rating_min: Minimum rating 0-100 (optional)
+            max_pages: Maximum number of pages to fetch (default: 10, 20 shows per page)
             
         Returns:
             List of series shows
@@ -204,13 +242,17 @@ class StreamingClient:
         if catalogs is None:
             catalogs = ["netflix", "disney", "prime", "hbo"]
         
+        # Log parameters once at the start
+        logger.info(f"Fetching series with: catalogs={catalogs}, year_min={current_year - 1}, year_max={current_year}, rating_min={rating_min}, max_pages={max_pages}")
+        
         return self.get_all_shows(
             country="nl",
             catalogs=catalogs,
             show_type="series",
             year_min=current_year - 1,
             year_max=current_year,
-            rating_min=rating_min
+            rating_min=rating_min,
+            max_pages=max_pages
         )
     
     def parse_show_data(self, show: Dict) -> Dict:

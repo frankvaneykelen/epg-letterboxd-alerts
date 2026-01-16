@@ -1,6 +1,6 @@
 """
-List movies available on your streaming services.
-Similar to epg_letterboxd_main.py but for streaming platforms instead of Ziggo EPG.
+List series available on your streaming services.
+Similar to list_streaming_movies.py but for TV series instead of movies.
 
 Combines:
 - Streaming Availability API (catalog data)
@@ -31,8 +31,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def generate_streaming_movies_page():
-    """Generate HTML page of movies available on streaming services."""
+def generate_streaming_series_page():
+    """Generate HTML page of series available on streaming services."""
     
     # Initialize clients
     streaming_api_key = os.getenv('STREAMING_API_KEY')
@@ -75,44 +75,43 @@ def generate_streaming_movies_page():
     
     # Get streaming settings from config
     streaming_config = config.get('streaming', {})
-    max_pages = streaming_config.get('max_pages_movies', 100)
+    max_pages = streaming_config.get('max_pages_series', 100)
     catalogs = streaming_config.get('catalogs', ["netflix", "disney", "prime", "hbo"])
     
-    logger.info(f"Using max_pages: {max_pages} (will fetch up to {max_pages * 20} movies)")
+    logger.info(f"Using max_pages: {max_pages} (will fetch up to {max_pages * 20} series)")
     
-    logger.info("Fetching movies from streaming services...")
+    logger.info("Fetching series from streaming services...")
     
-    # Get recent movies (current year and previous year)
-    movies = streaming_client.get_current_year_movies(
+    # Get recent series (current year and previous year)
+    series = streaming_client.get_current_year_series(
         catalogs=catalogs,
-        exclude_genres=["talk", "news"],
-        max_pages=max_pages,
-        rating_min=70
+        rating_min=70,
+        max_pages=max_pages
     )
     
-    logger.info(f"Found {len(movies)} movies")
+    logger.info(f"Found {len(series)} series")
     
-    # Process each movie
+    # Process each series
     suggestions = []
-    for idx, movie_data in enumerate(movies, 1): # add `[:50]` to limit processing for testing
-        movie = streaming_client.parse_show_data(movie_data)
+    for idx, series_data in enumerate(series, 1):
+        show = streaming_client.parse_show_data(series_data)
         
-        title = movie.get('title', 'Unknown')
-        year = movie.get('year', '-')
-        services = movie.get('streaming_services', [])
+        title = show.get('title', 'Unknown')
+        year = show.get('year', '-')
+        services = show.get('streaming_services', [])
         service_names = ', '.join([s.get('name', 'Unknown') for s in services[:2]])
         if len(services) > 2:
             service_names += f" +{len(services)-2} more"
         
-        logger.info(f"\n{'='*80}\nProcessing {idx}/{len(movies)}: {title} ({year}) - {service_names}\n{'='*80}")
+        logger.info(f"\n{'='*80}\nProcessing {idx}/{len(series)}: {title} ({year}) - {service_names}\n{'='*80}")
         
-        # Check if movie has subscription-based streaming (skip rent/buy only)
+        # Check if series has subscription-based streaming (skip rent/buy only)
         subscription_services = [s for s in services if s.get('type') == 'subscription']
         if not subscription_services:
             logger.info(f"  ✗ Skipping: only available for rent/buy, not subscription")
             continue
         
-        # Skip Prime Video movies that require channel subscriptions (MUBI, etc.)
+        # Skip Prime Video series that require channel subscriptions (MUBI, etc.)
         has_valid_subscription = False
         for s in subscription_services:
             if s.get('addon'):
@@ -125,13 +124,13 @@ def generate_streaming_movies_page():
             continue
         
         # Get TMDb rating (more reliable than Streaming API rating)
-        tmdb_id = movie.get('tmdb_id')
+        tmdb_id = show.get('tmdb_id')
         tmdb_rating = 0
         origin_country = None
         
         if tmdb_id and str(tmdb_id).isdigit():
             try:
-                tmdb_data = tmdb_client.get_movie_details(tmdb_id)
+                tmdb_data = tmdb_client.get_tv_series_details(tmdb_id)
                 if tmdb_data:
                     tmdb_rating = tmdb_data.get('vote_average', 0)
                     # Get origin country (ISO 3166-1 alpha-2 codes)
@@ -145,7 +144,7 @@ def generate_streaming_movies_page():
         else:
             logger.info(f"  TMDb: No valid ID")
         
-        # Check Letterboxd status
+        # Check Letterboxd status (some miniseries/limited series are tracked on Letterboxd)
         is_on_watchlist = False
         is_seen = False
         
@@ -168,7 +167,7 @@ def generate_streaming_movies_page():
         
         # Add to suggestions
         suggestions.append({
-            'movie': movie,
+            'series': show,
             'tmdb_rating': tmdb_rating,
             'origin_country': origin_country,
             'is_on_watchlist': is_on_watchlist,
@@ -190,7 +189,7 @@ def generate_streaming_movies_page():
 
     suggestions.sort(
         key=lambda x: (
-            parse_date(x['movie'].get('available_since')),
+            parse_date(x['series'].get('available_since')),
             x['tmdb_rating']
         ),
         reverse=True
@@ -202,7 +201,7 @@ def generate_streaming_movies_page():
     # Generate HTML
     _generate_html(suggestions, catalogs, min_rating, country_map)
     
-    logger.info(f"Generated streaming movies page with {len(suggestions)} films")
+    logger.info(f"Generated streaming series page with {len(suggestions)} shows")
 
 
 def _generate_html(suggestions, catalogs, min_rating, country_map):
@@ -215,7 +214,7 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
     html_lines.append('<head>')
     html_lines.append('    <meta charset="UTF-8">')
     html_lines.append('    <meta name="viewport" content="width=device-width, initial-scale=1.0">')
-    html_lines.append('    <title>Streaming Movies - Curated for @stereoparty</title>')
+    html_lines.append('    <title>Streaming Series - Curated for @stereoparty</title>')
     html_lines.append('    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">')
     html_lines.append('    <style>')
     html_lines.append('        body { background-color: #0a0a0a; color: #e0e0e0; }')
@@ -244,12 +243,12 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
     
     html_lines.append('        <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">')
     html_lines.append('            <div class="container-fluid">')
-    html_lines.append('                <span class="navbar-brand">Streaming Movies - Curated for <a href="https://letterboxd.com/stereoparty">@stereoparty</a></span>')
+    html_lines.append('                <span class="navbar-brand">Streaming Series - Curated for <a href="https://letterboxd.com/stereoparty">@stereoparty</a></span>')
     html_lines.append('            </div>')
     html_lines.append('        </nav>')
     
     html_lines.append(f'        <p class="text-muted">Generated: {timestamp.strftime("%Y-%m-%d %H:%M:%S")}</p>')
-    html_lines.append(f'        <p class="text-muted">Found <strong>{len(suggestions)}</strong> movies streaming on <strong>{services_str}</strong> in the <strong>Netherlands</strong> with a <strong>rating higher than {min_rating}</strong> and not already on the watched list for @stereoparty on Letterboxd. Sorted by availability date descending.</p>')
+    html_lines.append(f'        <p class="text-muted">Found <strong>{len(suggestions)}</strong> series streaming on <strong>{services_str}</strong> in the <strong>Netherlands</strong> with a streaming rating higher than 7 and a TMDb rating higher than {min_rating}. Sorted by availability date descending.</p>')
     
     # Table
     html_lines.append('        <div class="table-responsive">')
@@ -261,31 +260,29 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
     html_lines.append('                        <th>Poster</th>')
     html_lines.append('                        <th>Description</th>')
     html_lines.append('                        <th>TMDb Rating</th>')
-    html_lines.append('                        <th>LB</th>')
     html_lines.append('                        <th>Year</th>')
     html_lines.append('                        <th>Country</th>')
     html_lines.append('                        <th>Genres</th>')
     html_lines.append('                        <th>Director</th>')
     html_lines.append('                        <th>Actors</th>')
     html_lines.append('                        <th>Streaming On</th>')
-    html_lines.append('                        <th title="Status badges from Letterboxd">Status</th>')
     html_lines.append('                    </tr>')
     html_lines.append('                </thead>')
     html_lines.append('                <tbody>')
     
     for suggestion in suggestions: # add [:25] to limit for testing
-        movie = suggestion['movie']
-        title = movie['title']
-        year = movie['year'] or "-"
+        series = suggestion['series']
+        title = series['title']
+        year = series['year'] or "-"
         # Show original title in parentheses if present and different
-        original_title = movie.get('original_title')
+        original_title = series.get('original_title')
         if original_title:
             title_html = f'<strong>{title}</strong> <span class="text-muted" style="font-size:0.9em;">({original_title})</span>'
         else:
             title_html = f'<strong>{title}</strong>'
 
         # Available Since
-        available_since = movie.get('available_since')
+        available_since = series.get('available_since')
         available_since_html = '-'
         if available_since:
             try:
@@ -302,35 +299,29 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
         
         # Poster
         poster_html = "-"
-        poster_url = movie.get('poster_url')
+        poster_url = series.get('poster_url')
         if poster_url:
             title_escaped = title.replace('"', '&quot;')
             poster_html = f'<img src="{poster_url}" alt="{title}" style="height: 60px; border-radius: 4px; cursor: pointer;" onclick="showPoster(\'{poster_url}\', \'{title_escaped}\')">'
         
         # Description
-            description = movie.get('description', '')
-            description_html = description or '-'
+        description = series.get('description', '')
+        description_html = description or '-'
         
         # TMDb rating with link
         tmdb_rating = suggestion['tmdb_rating']
-        tmdb_id = movie.get('tmdb_id')
-        if tmdb_rating and tmdb_id:
-            tmdb_url = f"https://www.themoviedb.org/movie/{tmdb_id}"
+        tmdb_id = series.get('tmdb_id')
+        if tmdb_rating > 0 and tmdb_id:
+            tmdb_url = f"https://www.themoviedb.org/tv/{tmdb_id}"
             rating_html = f'<a href="{tmdb_url}" target="tmdb">{tmdb_rating:.1f}</a>'
         else:
             rating_html = "-"
         
-        # Letterboxd search
-        lb_search_parts = [quote(p, safe='') for p in [title, str(year)] if p and p != "-"]
-        lb_search_query = "+".join(lb_search_parts)
-        lb_search_url = f"https://letterboxd.com/search/films/{lb_search_query}/?adult"
-        lb_link = f'<a href="{lb_search_url}" target="letterboxd">🔍</a>'
-        
         # Genres
-        genres = ", ".join(movie['genres'][:3]) if movie['genres'] else "-"
+        genres = ", ".join(series['genres'][:3]) if series['genres'] else "-"
         
         # Director with Letterboxd link
-        director = movie.get('director', '-')
+        director = series.get('director', '-')
         if director and director != '-':
             normalized = unicodedata.normalize('NFD', director)
             ascii_name = ''.join(c for c in normalized if unicodedata.category(c) != 'Mn')
@@ -340,14 +331,24 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
             director_html = "-"
         
         # Actors
-        actors = movie.get('actors', [])
+        actors = series.get('actors', [])
         actors_html = ", ".join(actors[:3]) if actors else "-"
         if len(actors) > 3:
             actors_html += f" +{len(actors)-3} more"
         
-        # Streaming services with links
-        services = movie.get('streaming_services', [])
+        # Streaming services with links and logos
+        services = series.get('streaming_services', [])
         service_html_parts = []
+        
+        # Map of catalog IDs to service names for filtering
+        catalog_service_map = {
+            'netflix': 'Netflix',
+            'disney': 'Disney+',
+            'prime': 'Prime Video',
+            'hbo': 'HBO Max',
+            'skyshowtimenl': 'SkyShowtime'
+        }
+        allowed_services = set(catalog_service_map.get(c, c) for c in catalogs)
         
         # Show streaming service logos (dark theme) if available
         seen_services = set()
@@ -360,6 +361,9 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
             # Skip services that require channel addons (MUBI, etc.)
             if service.get('addon'):
                 continue
+            # Skip services not in configured catalogs
+            if service_name not in allowed_services:
+                continue
             # Skip duplicates
             if service_name in seen_services:
                 continue
@@ -370,9 +374,9 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
             if 'imageSet' in service and isinstance(service['imageSet'], dict):
                 logo_url = service['imageSet'].get('darkThemeImage') or service['imageSet'].get('lightThemeImage')
             # Fallback: try to get from raw_data if not present
-            if not logo_url and 'raw_data' in movie:
+            if not logo_url and 'raw_data' in series:
                 # Try to find the matching service in raw_data
-                for raw_option in movie['raw_data'].get('streamingOptions', {}).get('nl', []):
+                for raw_option in series['raw_data'].get('streamingOptions', {}).get('nl', []):
                     raw_service = raw_option.get('service', {})
                     if raw_service.get('name') == service_name:
                         if 'imageSet' in raw_service and isinstance(raw_service['imageSet'], dict):
@@ -387,15 +391,6 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
             else:
                 service_html_parts.append(img_tag)
         services_html = "<br>".join(service_html_parts) if service_html_parts else "-"
-        
-        # Status badges from Letterboxd
-        status_badges = []
-        if suggestion.get('is_on_watchlist'):
-            status_badges.append('<span class="badge bg-primary">Watchlist</span>')
-        if suggestion.get('is_seen'):
-            status_badges.append('<span class="badge bg-secondary">Watched</span>')
-        
-        status_html = " ".join(status_badges) if status_badges else "-"
         
         # Country (convert code to name using API country mapping)
         country_code = suggestion.get('origin_country') or '-'
@@ -412,14 +407,12 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
         html_lines.append(f'                        <td>{poster_html}</td>')
         html_lines.append(f'                        <td style="max-width: 300px; font-size: 0.9em;">{description_html}</td>')
         html_lines.append(f'                        <td>{rating_html}</td>')
-        html_lines.append(f'                        <td>{lb_link}</td>')
         html_lines.append(f'                        <td>{year}</td>')
         html_lines.append(f'                        <td>{country}</td>')
         html_lines.append(f'                        <td>{genres}</td>')
         html_lines.append(f'                        <td>{director_html}</td>')
         html_lines.append(f'                        <td style="max-width: 200px; font-size: 0.9em;">{actors_html}</td>')
         html_lines.append(f'                        <td>{services_html}</td>')
-        html_lines.append(f'                        <td>{status_html}</td>')
         html_lines.append('                    </tr>')
     
     html_lines.append('                </tbody>')
@@ -466,7 +459,7 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
     html_content = '\n'.join(html_lines)
     
     # Upload to blob storage (for Azure Functions and static website hosting)
-    upload_html_to_blob(html_content, "streaming-movies.html")
+    upload_html_to_blob(html_content, "streaming-series.html")
     
     # Only save local copy when running locally (not in Azure with read-only filesystem)
     is_azure = (os.environ.get('FUNCTIONS_WORKER_RUNTIME') or 
@@ -475,7 +468,7 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
     
     if not is_azure:
         try:
-            local_path = Path("wwwroot") / "streaming-movies.html"
+            local_path = Path("wwwroot") / "streaming-series.html"
             local_path.parent.mkdir(parents=True, exist_ok=True)
             with open(local_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
@@ -485,4 +478,4 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
 
 
 if __name__ == "__main__":
-    generate_streaming_movies_page()
+    generate_streaming_series_page()
