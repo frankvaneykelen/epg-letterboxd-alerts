@@ -14,6 +14,15 @@ logger = logging.getLogger(__name__)
 class StreamingClient:
     """Client for Streaming Availability API (RapidAPI)."""
     
+    # Fallback country data when API is unavailable
+    _FALLBACK_COUNTRIES = {
+        'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France', 'DE': 'Germany',
+        'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'JP': 'Japan',
+        'KR': 'South Korea', 'CN': 'China', 'IN': 'India', 'CA': 'Canada',
+        'AU': 'Australia', 'BE': 'Belgium', 'SE': 'Sweden', 'NO': 'Norway',
+        'DK': 'Denmark', 'FI': 'Finland', 'RU': 'Russia', 'BR': 'Brazil'
+    }
+    
     def __init__(self, api_key: str):
         """
         Initialize the Streaming Availability client.
@@ -57,23 +66,11 @@ class StreamingClient:
                 raise
             logger.warning(f"Failed to fetch countries from API (HTTP error): {e}")
             # Return basic fallback for other errors
-            return {
-                'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France', 'DE': 'Germany',
-                'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'JP': 'Japan',
-                'KR': 'South Korea', 'CN': 'China', 'IN': 'India', 'CA': 'Canada',
-                'AU': 'Australia', 'BE': 'Belgium', 'SE': 'Sweden', 'NO': 'Norway',
-                'DK': 'Denmark', 'FI': 'Finland', 'RU': 'Russia', 'BR': 'Brazil'
-            }
+            return self._FALLBACK_COUNTRIES.copy()
         except Exception as e:
             logger.warning(f"Failed to fetch countries from API: {e}")
             # Return basic fallback
-            return {
-                'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France', 'DE': 'Germany',
-                'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'JP': 'Japan',
-                'KR': 'South Korea', 'CN': 'China', 'IN': 'India', 'CA': 'Canada',
-                'AU': 'Australia', 'BE': 'Belgium', 'SE': 'Sweden', 'NO': 'Norway',
-                'DK': 'Denmark', 'FI': 'Finland', 'RU': 'Russia', 'BR': 'Brazil'
-            }
+            return self._FALLBACK_COUNTRIES.copy()
         
     def search_shows(
         self,
