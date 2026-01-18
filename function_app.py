@@ -35,11 +35,11 @@ def epg_letterboxd_series_timer(series_timer: func.TimerRequest) -> None:
     list_non_films()
 
 
-@app.timer_trigger(arg_name="streaming_timer", schedule="0 17 2 * * *")  # Daily at 2:17 AM
+@app.timer_trigger(arg_name="streaming_timer", schedule="0 17 2 * * 0")  # Every Sunday at 2:17 AM
 def streaming_movies_timer(streaming_timer: func.TimerRequest) -> None:
     """
     TimerTrigger function for Streaming Movies Catalog.
-    Runs daily at 2:17 AM to refresh the streaming catalog.
+    Runs every Sunday at 2:17 AM to refresh the streaming catalog.
     """
     # Lazy import to avoid module-level dependency loading
     from list_streaming_movies import generate_streaming_movies_page

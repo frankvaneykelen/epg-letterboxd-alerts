@@ -14,6 +14,15 @@ logger = logging.getLogger(__name__)
 class StreamingClient:
     """Client for Streaming Availability API (RapidAPI)."""
     
+    # Fallback country data when API is unavailable
+    _FALLBACK_COUNTRIES = {
+        'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France', 'DE': 'Germany',
+        'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'JP': 'Japan',
+        'KR': 'South Korea', 'CN': 'China', 'IN': 'India', 'CA': 'Canada',
+        'AU': 'Australia', 'BE': 'Belgium', 'SE': 'Sweden', 'NO': 'Norway',
+        'DK': 'Denmark', 'FI': 'Finland', 'RU': 'Russia', 'BR': 'Brazil'
+    }
+    
     def __init__(self, api_key: str):
         """
         Initialize the Streaming Availability client.
@@ -50,16 +59,18 @@ class StreamingClient:
             self._countries_cache = {c['countryCode']: c['name'] for c in countries_data}
             logger.info(f"Loaded {len(self._countries_cache)} countries from API")
             return self._countries_cache
+        except requests.exceptions.HTTPError as e:
+            # Re-raise 429 errors so the function invocation fails
+            if e.response is not None and e.response.status_code == 429:
+                logger.error(f"Streaming API rate limit exceeded (429) while fetching countries: {e}")
+                raise
+            logger.warning(f"Failed to fetch countries from API (HTTP error): {e}")
+            # Return basic fallback for other errors
+            return self._FALLBACK_COUNTRIES.copy()
         except Exception as e:
             logger.warning(f"Failed to fetch countries from API: {e}")
             # Return basic fallback
-            return {
-                'US': 'United States', 'GB': 'United Kingdom', 'FR': 'France', 'DE': 'Germany',
-                'IT': 'Italy', 'ES': 'Spain', 'NL': 'Netherlands', 'JP': 'Japan',
-                'KR': 'South Korea', 'CN': 'China', 'IN': 'India', 'CA': 'Canada',
-                'AU': 'Australia', 'BE': 'Belgium', 'SE': 'Sweden', 'NO': 'Norway',
-                'DK': 'Denmark', 'FI': 'Finland', 'RU': 'Russia', 'BR': 'Brazil'
-            }
+            return self._FALLBACK_COUNTRIES.copy()
         
     def search_shows(
         self,
@@ -120,6 +131,13 @@ class StreamingClient:
             response = requests.get(endpoint, headers=self.headers, params=params, timeout=10)
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            # Re-raise 429 errors so the function invocation fails
+            if e.response is not None and e.response.status_code == 429:
+                logger.error(f"Streaming API rate limit exceeded (429): {e}")
+                raise
+            logger.error(f"Streaming API HTTP error: {e}")
+            return {"shows": [], "nextCursor": None}
         except requests.exceptions.RequestException as e:
             logger.error(f"Streaming API error: {e}")
             return {"shows": [], "nextCursor": None}
