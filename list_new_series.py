@@ -369,6 +369,13 @@ def list_non_films():
         # Build title link
         title_html = f'<a href="{search_url}" target="ziggogo">{prog["title"]}</a>'
         
+        # Add original name from TMDb if available and different
+        if prog['tmdb_data'] and prog['tmdb_data'].get('original_name'):
+            original_name = prog['tmdb_data'].get('original_name')
+            # Only show if different from the title
+            if original_name and original_name != prog['title']:
+                title_html += f' <span class="text-muted" style="font-size:0.9em;">({original_name})</span>'
+        
         # Build poster image from TMDb
         poster_html = "-"
         if prog['tmdb_data'] and prog['tmdb_data'].get('poster_path'):
@@ -880,6 +887,13 @@ def _build_table_row(prog, icon_map):
     
     # Title link
     title_html = f'<a href="{search_url}" target="ziggogo">{prog["title"]}</a>'
+    
+    # Add original name from TMDb if available and different
+    if prog['tmdb_data'] and prog['tmdb_data'].get('original_name'):
+        original_name = prog['tmdb_data'].get('original_name')
+        # Only show if different from the title
+        if original_name and original_name != prog['title']:
+            title_html += f' <span class="text-muted" style="font-size:0.9em;">({original_name})</span>'
     
     # Poster image
     poster_html = "-"

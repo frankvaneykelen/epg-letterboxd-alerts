@@ -58,7 +58,11 @@ class TMDbClient:
             results = response.json().get("results", [])
             if results:
                 best_match = results[0]
-                logger.info(f"Found TMDb match for '{title}': {best_match.get('title')}")
+                original_title = best_match.get('original_title')
+                if original_title and original_title != best_match.get('title'):
+                    logger.info(f"Found TMDb match for '{title}': {best_match.get('title')} ({original_title})")
+                else:
+                    logger.info(f"Found TMDb match for '{title}': {best_match.get('title')}")
                 return best_match
 
             logger.info(f"No TMDb match found for '{title}'")
@@ -131,6 +135,7 @@ class TMDbClient:
             return {
                 "tmdb_id": movie_id,
                 "title": movie.get("title"),
+                "original_title": movie.get("original_title"),
                 "release_date": movie.get("release_date"),
                 "vote_average": movie.get("vote_average"),
                 "vote_count": movie.get("vote_count"),
@@ -140,6 +145,7 @@ class TMDbClient:
         return {
             "tmdb_id": details.get("id"),
             "title": details.get("title"),
+            "original_title": details.get("original_title"),
             "release_date": details.get("release_date"),
             "overview": details.get("overview"),
             "genres": [g.get("name") for g in details.get("genres", [])],
@@ -295,6 +301,7 @@ class TMDbClient:
             return {
                 "tmdb_id": series_id,
                 "name": series.get("name"),
+                "original_name": series.get("original_name"),
                 "first_air_date": series.get("first_air_date"),
                 "vote_average": series.get("vote_average"),
                 "vote_count": series.get("vote_count"),
@@ -304,6 +311,7 @@ class TMDbClient:
         return {
             "tmdb_id": details.get("id"),
             "name": details.get("name"),
+            "original_name": details.get("original_name"),
             "first_air_date": details.get("first_air_date"),
             "overview": details.get("overview"),
             "genres": [g.get("name") for g in details.get("genres", [])],

@@ -127,6 +127,7 @@ def generate_streaming_series_page():
         tmdb_id = show.get('tmdb_id')
         tmdb_rating = 0
         origin_country = None
+        tmdb_original_name = None
         
         if tmdb_id and str(tmdb_id).isdigit():
             try:
@@ -137,7 +138,9 @@ def generate_streaming_series_page():
                     origin_countries = tmdb_data.get('origin_country', [])
                     if origin_countries:
                         origin_country = ', '.join(origin_countries[:3])  # Show up to 3 countries
-                    logger.info(f"  TMDb: rating={tmdb_rating:.1f}, country={origin_country or 'N/A'}, id={tmdb_id}")
+                    # Get original name from TMDb
+                    tmdb_original_name = tmdb_data.get('original_name')
+                    logger.info(f"  TMDb: rating={tmdb_rating:.1f}, country={origin_country or 'N/A'}, original_name={tmdb_original_name or 'N/A'}, id={tmdb_id}")
             except Exception as e:
                 logger.debug(f"  Failed to fetch TMDb data for {tmdb_id}: {e}")
                 tmdb_rating = 0
@@ -171,7 +174,8 @@ def generate_streaming_series_page():
             'tmdb_rating': tmdb_rating,
             'origin_country': origin_country,
             'is_on_watchlist': is_on_watchlist,
-            'is_seen': is_seen
+            'is_seen': is_seen,
+            'tmdb_original_name': tmdb_original_name
         })
     
     # Sort by available_since (descending, then TMDb rating)
@@ -274,10 +278,10 @@ def _generate_html(suggestions, catalogs, min_rating, country_map):
         series = suggestion['series']
         title = series['title']
         year = series['year'] or "-"
-        # Show original title in parentheses if present and different
-        original_title = series.get('original_title')
-        if original_title:
-            title_html = f'<strong>{title}</strong> <span class="text-muted" style="font-size:0.9em;">({original_title})</span>'
+        # Show original name from TMDb if available and different
+        tmdb_original_name = suggestion.get('tmdb_original_name')
+        if tmdb_original_name and tmdb_original_name != title:
+            title_html = f'<strong>{title}</strong> <span class="text-muted" style="font-size:0.9em;">({tmdb_original_name})</span>'
         else:
             title_html = f'<strong>{title}</strong>'
 

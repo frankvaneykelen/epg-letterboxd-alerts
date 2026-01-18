@@ -354,11 +354,17 @@ def main(mytimer: func.TimerRequest) -> None:
             # Build title link (without subtitle)
             full_title = broadcast.title
             search_url = f"https://www.ziggogo.tv/nl/epg/initial/search/{quote(full_title)}%20"
+            tmdb_data = suggestion.get('tmdb_data')
+            # Add original title from TMDb if available and different
             title_html = f'<a href="{search_url}" target="ziggogo">{broadcast.title}</a>'
+            if tmdb_data and tmdb_data.get('original_title'):
+                original_title = tmdb_data.get('original_title')
+                # Only show if different from the broadcast title
+                if original_title and original_title != broadcast.title:
+                    title_html += f' <span class="text-muted" style="font-size:0.9em;">({original_title})</span>'
             
             # Build poster image from TMDb
             poster_html = "-"
-            tmdb_data = suggestion.get('tmdb_data')
             if tmdb_data and tmdb_data.get('poster_path'):
                 poster_path = tmdb_data['poster_path']
                 thumb_url = f"https://image.tmdb.org/t/p/w92{poster_path}"
@@ -654,6 +660,14 @@ def _build_film_table_row(suggestion):
     from urllib.parse import quote
     search_url = f"https://www.ziggogo.tv/nl/epg/initial/search/{quote(title)}%20"
     title_html = f'<a href="{search_url}" target="ziggogo">{title}</a>'
+    
+    # Add original title from TMDb if available and different
+    tmdb_data = suggestion.get('tmdb_data')
+    if tmdb_data and tmdb_data.get('original_title'):
+        original_title = tmdb_data.get('original_title')
+        # Only show if different from the broadcast title
+        if original_title and original_title != title:
+            title_html += f' <span class="text-muted" style="font-size:0.9em;">({original_title})</span>'
     
     tmdb_title = broadcast.title
     tmdb_year = year if year != "-" else ""
