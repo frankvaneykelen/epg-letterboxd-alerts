@@ -75,7 +75,7 @@ def generate_streaming_movies_page():
     
     # Get streaming settings from config
     streaming_config = config.get('streaming', {})
-    max_pages = streaming_config.get('max_pages_movies', 100)
+    max_pages = streaming_config.get('max_pages_movies', 150)
     catalogs = streaming_config.get('catalogs', ["netflix", "disney", "prime", "hbo"])
     
     logger.info(f"Using max_pages: {max_pages} (will fetch up to {max_pages * 20} movies)")
@@ -158,6 +158,11 @@ def generate_streaming_movies_page():
             is_on_watchlist = letterboxd_csv.is_on_watchlist(title, year)
             is_seen = letterboxd_csv.is_seen(title, year)
             logger.info(f"  Letterboxd: watchlist={is_on_watchlist}, seen={is_seen}")
+            
+            # Skip movies already watched
+            if is_seen:
+                logger.info(f"  ✗ Skipping: already watched")
+                continue
         
         # Filter using min_rating from config (same as EPG)
         if tmdb_rating > 0 and tmdb_rating < min_rating:
