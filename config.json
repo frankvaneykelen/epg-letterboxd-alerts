@@ -21,7 +21,7 @@
   },
   "streaming": {
     "enabled": true,
-    "max_pages_movies": 100,
+    "max_pages_movies": 200,
     "max_pages_series": 500,
     "catalogs": ["netflix", "disney", "prime", "hbo"]
   },
