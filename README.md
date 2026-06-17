@@ -215,6 +215,23 @@ The Ziggo settings in `config.json`:
 
 **Important**: Run the EPG fetcher **at most twice per day** to avoid overloading Ziggo's servers. The cache ensures subsequent runs are fast.
 
+### Endpoint Volatility Warning
+
+This integration relies on **unsupported, reverse-engineered Ziggo endpoints**. Ziggo can change hostnames/paths without notice, which may cause failures like:
+
+- `Internal Server Error - Read` (HTTP 500)
+- Empty/HTML responses where JSON is expected
+- Segment fetch failures after a specific date
+
+When this happens, check these sources first:
+
+1. Local endpoint config in `configs/ziggo-nl.yml`
+2. Upstream issue tracker: https://github.com/jbogers/ziggogo-epg/issues/10
+3. Known URL fix commit reference: https://github.com/BertusG/ziggogo-epg/commit/f32b349468fc97e0339a6aebf9f000282b33aab6
+4. Community thread for Ziggo endpoint changes: https://webgrabplus.com/content/ziggo
+
+If EPG suddenly breaks again, compare your `ziggo-nl.yml` URLs with the latest upstream `ziggogo-epg` URLs before changing parser logic.
+
 For detailed information, see [ZIGGOGO_EPG_INTEGRATION.md](ZIGGOGO_EPG_INTEGRATION.md).
 
 ## TV Series Discovery

@@ -283,6 +283,8 @@ class ZiggoGoEpgGrabber:
         session.mount('https://', HTTPAdapter(max_retries=retries))
 
         segment_count = 0
+        failed_segment_count = 0
+        failed_status_counts = {}
         while segment_datetime < end_datetime:
             segment_code = segment_datetime.strftime("%Y%m%d%H%M%S")
             
@@ -292,7 +294,33 @@ class ZiggoGoEpgGrabber:
                         logger.info(f"No more EPG data at {segment_datetime}, stopping")
                         break
 
-                    segmentdata = r.json()
+                    # Ziggo can occasionally return empty or HTML error pages.
+                    # Avoid opaque JSON errors and log enough context to debug.
+                    content_type = r.headers.get("Content-Type", "")
+                    response_text = r.text.strip()
+
+                    if not response_text:
+                        failed_segment_count += 1
+                        failed_status_counts[r.status_code] = failed_status_counts.get(r.status_code, 0) + 1
+                        logger.warning(
+                            f"Empty response for segment {segment_code} "
+                            f"(status={r.status_code}, content-type='{content_type}')"
+                        )
+                        segment_datetime += datetime.timedelta(hours=6)
+                        continue
+
+                    try:
+                        segmentdata = r.json()
+                    except ValueError:
+                        preview = response_text[:200].replace("\n", " ")
+                        failed_segment_count += 1
+                        failed_status_counts[r.status_code] = failed_status_counts.get(r.status_code, 0) + 1
+                        logger.warning(
+                            f"Non-JSON response for segment {segment_code} "
+                            f"(status={r.status_code}, content-type='{content_type}', body='{preview}')"
+                        )
+                        segment_datetime += datetime.timedelta(hours=6)
+                        continue
                     
                     if "duration" in segmentdata and isinstance(segmentdata["duration"], int) and segmentdata["duration"] > 0:
                         segment_datetime += datetime.timedelta(seconds=segmentdata["duration"])
@@ -333,8 +361,18 @@ class ZiggoGoEpgGrabber:
                         logger.info(f"Processed {segment_count} segments...")
 
             except Exception as e:
+                failed_segment_count += 1
                 logger.warning(f"Error grabbing segment {segment_code}: {e}")
                 segment_datetime += datetime.timedelta(hours=6)
+
+        if segment_count == 0 and failed_segment_count > 0:
+            status_summary = ", ".join(
+                f"{status}x{count}" for status, count in sorted(failed_status_counts.items())
+            )
+            raise GrabException(
+                "Failed to fetch any programme segments from Ziggo API "
+                f"(failed_segments={failed_segment_count}, status_codes={status_summary or 'unknown'})."
+            )
 
         # Purge old programmes
         logger.info("Cleaning up programme table...")
